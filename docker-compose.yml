@@ -1,0 +1,18 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: rakushif-container
+    platform: linux/amd64
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+    ports:
+      - ${DATABASE_PORT}:3306
+    volumes:
+      - ./prisma/migrations:/docker-entrypoint-initdb.d
+      - rakushif-mysql-vol:/var/lib/mysql
+volumes:
+  rakushif-mysql-vol:
