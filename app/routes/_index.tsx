@@ -1,4 +1,4 @@
-import { Form } from '@remix-run/react';
+import { Form, Link } from '@remix-run/react';
 import styles from './index.css';
 import { ActionFunctionArgs, redirect } from "@remix-run/node";
 import { PrismaClient } from '@prisma/client';
@@ -17,6 +17,10 @@ export default function Index() {
         <button className="btn" type="submit" name="type" value="START_BREAK">休憩開始</button>
         <button className="btn" type="submit" name="type" value="END_BREAK">休憩終了</button>
       </Form>
+
+      <p>
+        <Link to="/records">記録一覧を見る</Link>
+      </p>
     </div>
   );
 }
