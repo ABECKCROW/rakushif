@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLoaderData } from "@remix-run/react";
 import prisma from '~/.server/db/client';
 
@@ -15,6 +16,21 @@ export async function loader() {
 export default function RecordsPage() {
   const records = useLoaderData<typeof loader>();
 
+  function ClientOnlyDate({ timestamp }: { timestamp: string }) {
+    const [formatted, setFormatted] = useState("");
+
+    useEffect(() => {
+      const date = new Date(timestamp);
+      setFormatted(date.toLocaleString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        dateStyle: "medium",
+        timeStyle: "short",
+      }));
+    }, [timestamp]);
+
+    return <>{formatted}</>;
+  }
+
   return (
     <div>
       <h1>記録一覧</h1>
@@ -29,7 +45,7 @@ export default function RecordsPage() {
         {records.map((r) => (
           <tr key={r.id}>
             <td>{translateType(r.type)}</td>
-            <td>{new Date(r.timestamp).toLocaleString()}</td>
+            <td><ClientOnlyDate timestamp={r.timestamp} /></td>
           </tr>
         ))}
         </tbody>
