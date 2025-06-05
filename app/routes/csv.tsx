@@ -1,5 +1,5 @@
-import { stringify } from "csv-stringify/sync";
 import type { LoaderFunction } from "@remix-run/node";
+import { stringify } from "csv-stringify/sync";
 import prisma from "~/.server/db/client";
 
 export const loader: LoaderFunction = async () => {
@@ -14,7 +14,7 @@ export const loader: LoaderFunction = async () => {
       userId: 1,
       // timestamp: { gte: from, lte: to }
     },
-    orderBy: { timestamp: "asc" }
+    orderBy: { timestamp: "asc" },
   });
 
   // 3) 行データ生成
@@ -30,18 +30,23 @@ export const loader: LoaderFunction = async () => {
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=UTF-8",
-      "Content-Disposition": `attachment; filename="test.csv"`
+      "Content-Disposition": `attachment; filename="test.csv"`,
       // "Content-Disposition": `attachment; filename="records_${from.toISOString().slice(0,10)}_${to.toISOString().slice(0,10)}.csv"`
-    }
+    },
   });
 };
 
-function translateType(t: string) {
+const translateType = (t: string) => {
   switch (t) {
-    case "START_WORK":  return "出勤";
-    case "END_WORK":    return "退勤";
-    case "START_BREAK": return "休憩開始";
-    case "END_BREAK":   return "休憩終了";
-    default:            return t;
+    case "START_WORK":
+      return "出勤";
+    case "END_WORK":
+      return "退勤";
+    case "START_BREAK":
+      return "休憩開始";
+    case "END_BREAK":
+      return "休憩終了";
+    default:
+      return t;
   }
-}
+};

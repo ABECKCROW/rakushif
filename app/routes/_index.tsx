@@ -1,7 +1,7 @@
-import { Form, Link } from '@remix-run/react';
-import styles from './index.css';
-import { ActionFunctionArgs, redirect } from "@remix-run/node";
 import { PrismaClient } from '@prisma/client';
+import { ActionFunctionArgs, redirect } from "@remix-run/node";
+import { Form, Link } from '@remix-run/react';
+import styles from '../styles/index.css';
 
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
@@ -28,7 +28,7 @@ export default function Index() {
 export async function action({ request }: ActionFunctionArgs) {
   const form = await request.formData();
   const type = form.get("type");
-  const prisma = new PrismaClient()
+  const prisma = new PrismaClient();
 
   if (
     type !== "START_WORK" &&

@@ -1,22 +1,20 @@
-import { useEffect, useState } from "react";
 import { Link, useLoaderData } from "@remix-run/react";
+import { useEffect, useState } from "react";
 import prisma from '~/.server/db/client';
 
-export async function loader() {
+export const loader = () => {
   const userId = 1; // 仮ユーザーID
 
-  const records = await prisma.record.findMany({
+  return prisma.record.findMany({
     where: { userId },
     orderBy: { timestamp: "desc" },
   });
+};
 
-  return records;
-}
-
-export default function RecordsPage() {
+export const RecordsPage = () => {
   const records = useLoaderData<typeof loader>();
 
-  function ClientOnlyDate({ timestamp }: { timestamp: string }) {
+  const ClientOnlyDate = ({ timestamp }: { timestamp: Date }) => {
     const [formatted, setFormatted] = useState("");
 
     useEffect(() => {
@@ -29,7 +27,7 @@ export default function RecordsPage() {
     }, [timestamp]);
 
     return <>{formatted}</>;
-  }
+  };
 
   return (
     <div>
@@ -57,9 +55,9 @@ export default function RecordsPage() {
       </p>
     </div>
   );
-}
+};
 
-function translateType(type: string): string {
+const translateType = (type: string): string => {
   switch (type) {
     case "START_WORK":
       return "出勤";
@@ -72,4 +70,6 @@ function translateType(type: string): string {
     default:
       return type;
   }
-}
+};
+
+export default RecordsPage;
