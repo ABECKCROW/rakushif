@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import prisma from '~/.server/db/client';
 
 export async function loader() {
@@ -50,6 +50,11 @@ export default function RecordsPage() {
         ))}
         </tbody>
       </table>
+      <p>
+        <Link to="/csv" reloadDocument>
+          📥 CSVをダウンロード
+        </Link>
+      </p>
     </div>
   );
 }
