@@ -13,6 +13,22 @@ export const loader = () => {
 
 export const RecordsPage = () => {
   const records = useLoaderData<typeof loader>();
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Initialize with current month's start and end dates
+  useEffect(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    setStartDate(formatDateForInput(firstDay));
+    setEndDate(formatDateForInput(lastDay));
+  }, []);
+
+  const formatDateForInput = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
 
   const ClientOnlyDate = ({ timestamp }: { timestamp: Date }) => {
     const [formatted, setFormatted] = useState("");
@@ -29,9 +45,37 @@ export const RecordsPage = () => {
     return <>{formatted}</>;
   };
 
+  const getCsvUrl = () => {
+    if (!startDate || !endDate) return "/csv";
+    return `/csv?from=${startDate}&to=${endDate}`;
+  };
+
   return (
     <div>
       <h1>記録一覧</h1>
+
+      <div style={{ marginBottom: "20px" }}>
+        <h2>CSVダウンロード期間選択</h2>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <label>
+            開始日:
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </label>
+          <label>
+            終了日:
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </label>
+        </div>
+      </div>
+
       <table border={1}>
         <thead>
         <tr>
@@ -49,7 +93,7 @@ export const RecordsPage = () => {
         </tbody>
       </table>
       <p>
-        <Link to="/csv" reloadDocument>
+        <Link to={getCsvUrl()} reloadDocument>
           📥 CSVをダウンロード
         </Link>
       </p>

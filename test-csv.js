@@ -1,109 +1,11 @@
-import type { LoaderFunction } from "@remix-run/node";
-import { stringify } from "csv-stringify/sync";
-import prisma from "~/.server/db/client";
+// Since we can't directly import from the app/routes/csv.tsx file in a Node.js script,
+// we'll reimplement the necessary functions here for testing purposes.
 
-const HOURLY_RATE = 1500;
-const MINUTE_UNIT = 60; // 労働時間の有効分数単位（デフォルト: 60分単位）
 const DAYS_OF_WEEK_JP = ["日", "月", "火", "水", "木", "金", "土"];
+const MINUTE_UNIT = 60;
+const HOURLY_RATE = 1500;
 
-export const loader: LoaderFunction = async ({ request }) => {
-  // 1) 期間パラメータをクエリから取得
-  const url = new URL(request.url);
-  let from = new Date();
-  let to = new Date();
-
-  if (url.searchParams.has("from") && url.searchParams.has("to")) {
-    from = new Date(url.searchParams.get("from")!);
-    to = new Date(url.searchParams.get("to")!);
-
-    // 終了日の時間を23:59:59に設定して、その日全体を含める
-    to.setHours(23, 59, 59, 999);
-  } else {
-    // デフォルトは現在の月の範囲
-    from = new Date(from.getFullYear(), from.getMonth(), 1);
-    to = new Date(to.getFullYear(), to.getMonth() + 1, 0, 23, 59, 59, 999);
-  }
-
-  // 2) DB クエリ
-  const records = await prisma.record.findMany({
-    where: {
-      userId: 1,
-      timestamp: { gte: from, lte: to },
-    },
-    orderBy: { timestamp: "asc" },
-    include: { user: true },
-  });
-
-  // ユーザー情報を取得
-  const user = records.length > 0 ? records[0].user : await prisma.user.findFirst({ where: { id: 1 } });
-  const userName = user?.name;
-
-  // 3) 日付ごとにレコードをグループ化
-  const recordsByDate = groupRecordsByDate(records);
-
-  // 4) 日ごとのデータを計算して行データを生成
-  const dailyData = calculateDailyData(recordsByDate);
-
-  // 5) 月の合計を計算
-  const monthlyTotal = dailyData.reduce((sum, day) => sum + day.dailyWage, 0);
-
-  // 6) 月の表示用文字列を生成
-  const monthStr = `${from.getFullYear()}年${from.getMonth() + 1}月`;
-
-  // 7) CSVヘッダー行を生成
-  const headerRow = [`# ユーザー: ${userName} / 月: ${monthStr} / 時給: ${HOURLY_RATE.toLocaleString()}円`];
-
-  // 8) CSV列ヘッダー行
-  const columnHeaders = ["日付", "出勤時刻", "退勤時刻", "労働時間", "休憩時間", "日給", "備考"];
-
-  // 9) CSV行データ生成
-  const rows = dailyData.map(day => [
-    day.dateStr,
-    day.startTime || "",
-    day.endTime || "",
-    day.workHours || "",
-    day.breakTime || "",
-    day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : "",
-    day.notes || "",
-  ]);
-
-  // 10) 月給合計行を追加
-  const totalRow = ["", "", "", "", "月給合計", `${monthlyTotal.toLocaleString()}円`, ""];
-
-  // 11) すべての行を結合
-  const allRows = [headerRow, columnHeaders, ...rows, totalRow];
-
-  // 12) CSV 文字列化
-  const csv = stringify(allRows);
-
-  // 13) レスポンス
-  return new Response(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=UTF-8",
-      "Content-Disposition": `attachment; filename="records_${from.toISOString().slice(0, 10)}_${to.toISOString().slice(0, 10)}.csv"`,
-    },
-  });
-};
-
-// 日付ごとにレコードをグループ化する関数
-const groupRecordsByDate = (records) => {
-  const groups = {};
-
-  records.forEach(record => {
-    const date = new Date(record.timestamp);
-    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-    if (!groups[dateStr]) {
-      groups[dateStr] = [];
-    }
-
-    groups[dateStr].push(record);
-  });
-
-  return groups;
-};
-
-// 日ごとのデータを計算する関数
+// Reimplementation of calculateDailyData function
 const calculateDailyData = (recordsByDate) => {
   const result = [];
 
@@ -146,7 +48,6 @@ const calculateDailyData = (recordsByDate) => {
       }
     }
 
-    // 通常の処理を続行
     for (let i = 0; i < records.length; i++) {
       const record = records[i];
       const time = record.timestamp;
@@ -248,17 +149,9 @@ const calculateDailyData = (recordsByDate) => {
 
       // 休憩時間（ミリ秒）
       let breakMs = 0;
-      // 複数の休憩ペアがある場合は、すべての休憩時間を合計する
-      if (breakPairs.length > 0) {
-        breakPairs.forEach(breakPair => {
-          breakMs += breakPair.end.getTime() - breakPair.start.getTime();
-        });
-
-        // 複数の休憩ペアがある場合は、その旨をnotesに追加
-        if (breakPairs.length > 1) {
-          notes.push(`${breakPairs.length}件の休憩ペアの合計時間を表示しています`);
-        }
-      }
+      breakPairs.forEach(breakPair => {
+        breakMs += breakPair.end.getTime() - breakPair.start.getTime();
+      });
 
       // 労働時間 = 総時間 - 休憩時間
       workMinutes = Math.max(0, Math.floor((totalMs - breakMs) / (1000 * 60)));
@@ -288,23 +181,52 @@ const calculateDailyData = (recordsByDate) => {
     });
   }
 
-  // 日付でソート
-  result.sort((a, b) => {
-    const dateA = a.dateStr.split('(')[0].split('/');
-    const dateB = b.dateStr.split('(')[0].split('/');
-
-    const monthA = parseInt(dateA[0]);
-    const dayA = parseInt(dateA[1]);
-
-    const monthB = parseInt(dateB[0]);
-    const dayB = parseInt(dateB[1]);
-
-    if (monthA !== monthB) {
-      return monthA - monthB;
-    }
-
-    return dayA - dayB;
-  });
-
   return result;
 };
+
+// Create test records based on the example in the issue description
+// Use explicit JST timezone (UTC+9) by adding +09:00 to the time
+const testRecords = [
+  { type: "END_WORK", timestamp: new Date("2025-06-06T09:22:00+09:00") },
+  { type: "START_WORK", timestamp: new Date("2025-06-06T09:21:00+09:00") },
+  { type: "END_BREAK", timestamp: new Date("2025-06-06T09:20:00+09:00") },
+  { type: "START_BREAK", timestamp: new Date("2025-06-06T09:19:00+09:00") },
+  { type: "START_WORK", timestamp: new Date("2025-06-06T09:18:00+09:00") },
+  { type: "END_WORK", timestamp: new Date("2025-06-06T09:17:00+09:00") },
+  { type: "START_WORK", timestamp: new Date("2025-06-06T00:01:00+09:00") }
+];
+
+// Group records by date
+const recordsByDate = {};
+testRecords.forEach(record => {
+  const date = record.timestamp;
+  // Use local date (JST) instead of UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
+
+  if (!recordsByDate[dateStr]) {
+    recordsByDate[dateStr] = [];
+  }
+
+  recordsByDate[dateStr].push(record);
+});
+
+// Print the grouped records
+console.log("Grouped records:");
+for (const dateStr in recordsByDate) {
+  console.log(`Date: ${dateStr}`);
+  console.log(`Records: ${recordsByDate[dateStr].length}`);
+  console.log("START_WORK count:", recordsByDate[dateStr].filter(r => r.type === "START_WORK").length);
+  console.log("END_WORK count:", recordsByDate[dateStr].filter(r => r.type === "END_WORK").length);
+  console.log("Records:", recordsByDate[dateStr].map(r => `${r.type} ${r.timestamp.toISOString()}`));
+  console.log("---");
+}
+
+// Calculate daily data
+const dailyData = calculateDailyData(recordsByDate);
+
+// Print the results
+console.log("Daily data:");
+console.log(dailyData);

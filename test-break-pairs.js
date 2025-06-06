@@ -1,109 +1,48 @@
-import type { LoaderFunction } from "@remix-run/node";
-import { stringify } from "csv-stringify/sync";
-import prisma from "~/.server/db/client";
+// Test script to verify that multiple break pairs are handled correctly
 
-const HOURLY_RATE = 1500;
-const MINUTE_UNIT = 60; // 労働時間の有効分数単位（デフォルト: 60分単位）
-const DAYS_OF_WEEK_JP = ["日", "月", "火", "水", "木", "金", "土"];
+// Create test records with multiple break pairs
+const testRecords = [
+  { type: "END_WORK", timestamp: new Date("2025-06-06T09:22:00+09:00") },
+  { type: "START_WORK", timestamp: new Date("2025-06-06T09:00:00+09:00") },
+  { type: "END_BREAK", timestamp: new Date("2025-06-06T09:20:00+09:00") },
+  { type: "START_BREAK", timestamp: new Date("2025-06-06T09:15:00+09:00") },
+  { type: "END_BREAK", timestamp: new Date("2025-06-06T09:10:00+09:00") },
+  { type: "START_BREAK", timestamp: new Date("2025-06-06T09:05:00+09:00") }
+];
 
-export const loader: LoaderFunction = async ({ request }) => {
-  // 1) 期間パラメータをクエリから取得
-  const url = new URL(request.url);
-  let from = new Date();
-  let to = new Date();
+// Group records by date
+const recordsByDate = {};
+testRecords.forEach(record => {
+  const date = record.timestamp;
+  // Use local date (JST) instead of UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
 
-  if (url.searchParams.has("from") && url.searchParams.has("to")) {
-    from = new Date(url.searchParams.get("from")!);
-    to = new Date(url.searchParams.get("to")!);
-
-    // 終了日の時間を23:59:59に設定して、その日全体を含める
-    to.setHours(23, 59, 59, 999);
-  } else {
-    // デフォルトは現在の月の範囲
-    from = new Date(from.getFullYear(), from.getMonth(), 1);
-    to = new Date(to.getFullYear(), to.getMonth() + 1, 0, 23, 59, 59, 999);
+  if (!recordsByDate[dateStr]) {
+    recordsByDate[dateStr] = [];
   }
 
-  // 2) DB クエリ
-  const records = await prisma.record.findMany({
-    where: {
-      userId: 1,
-      timestamp: { gte: from, lte: to },
-    },
-    orderBy: { timestamp: "asc" },
-    include: { user: true },
-  });
+  recordsByDate[dateStr].push(record);
+});
 
-  // ユーザー情報を取得
-  const user = records.length > 0 ? records[0].user : await prisma.user.findFirst({ where: { id: 1 } });
-  const userName = user?.name;
+// Print the grouped records
+console.log("Grouped records:");
+for (const dateStr in recordsByDate) {
+  console.log(`Date: ${dateStr}`);
+  console.log(`Records: ${recordsByDate[dateStr].length}`);
+  console.log("START_WORK count:", recordsByDate[dateStr].filter(r => r.type === "START_WORK").length);
+  console.log("END_WORK count:", recordsByDate[dateStr].filter(r => r.type === "END_WORK").length);
+  console.log("START_BREAK count:", recordsByDate[dateStr].filter(r => r.type === "START_BREAK").length);
+  console.log("END_BREAK count:", recordsByDate[dateStr].filter(r => r.type === "END_BREAK").length);
+  console.log("Records:", recordsByDate[dateStr].map(r => `${r.type} ${r.timestamp.toISOString()}`));
+  console.log("---");
+}
 
-  // 3) 日付ごとにレコードをグループ化
-  const recordsByDate = groupRecordsByDate(records);
+// Simulate the calculateDailyData function
+const DAYS_OF_WEEK_JP = ["日", "月", "火", "水", "木", "金", "土"];
 
-  // 4) 日ごとのデータを計算して行データを生成
-  const dailyData = calculateDailyData(recordsByDate);
-
-  // 5) 月の合計を計算
-  const monthlyTotal = dailyData.reduce((sum, day) => sum + day.dailyWage, 0);
-
-  // 6) 月の表示用文字列を生成
-  const monthStr = `${from.getFullYear()}年${from.getMonth() + 1}月`;
-
-  // 7) CSVヘッダー行を生成
-  const headerRow = [`# ユーザー: ${userName} / 月: ${monthStr} / 時給: ${HOURLY_RATE.toLocaleString()}円`];
-
-  // 8) CSV列ヘッダー行
-  const columnHeaders = ["日付", "出勤時刻", "退勤時刻", "労働時間", "休憩時間", "日給", "備考"];
-
-  // 9) CSV行データ生成
-  const rows = dailyData.map(day => [
-    day.dateStr,
-    day.startTime || "",
-    day.endTime || "",
-    day.workHours || "",
-    day.breakTime || "",
-    day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : "",
-    day.notes || "",
-  ]);
-
-  // 10) 月給合計行を追加
-  const totalRow = ["", "", "", "", "月給合計", `${monthlyTotal.toLocaleString()}円`, ""];
-
-  // 11) すべての行を結合
-  const allRows = [headerRow, columnHeaders, ...rows, totalRow];
-
-  // 12) CSV 文字列化
-  const csv = stringify(allRows);
-
-  // 13) レスポンス
-  return new Response(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=UTF-8",
-      "Content-Disposition": `attachment; filename="records_${from.toISOString().slice(0, 10)}_${to.toISOString().slice(0, 10)}.csv"`,
-    },
-  });
-};
-
-// 日付ごとにレコードをグループ化する関数
-const groupRecordsByDate = (records) => {
-  const groups = {};
-
-  records.forEach(record => {
-    const date = new Date(record.timestamp);
-    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-    if (!groups[dateStr]) {
-      groups[dateStr] = [];
-    }
-
-    groups[dateStr].push(record);
-  });
-
-  return groups;
-};
-
-// 日ごとのデータを計算する関数
 const calculateDailyData = (recordsByDate) => {
   const result = [];
 
@@ -274,8 +213,8 @@ const calculateDailyData = (recordsByDate) => {
     };
 
     // 日給の計算（MINUTE_UNITで指定された分数単位で切り捨て）
-    const effectiveWorkHours = Math.floor(workMinutes / MINUTE_UNIT);
-    const dailyWage = effectiveWorkHours * HOURLY_RATE;
+    const effectiveWorkHours = Math.floor(workMinutes / 60);
+    const dailyWage = effectiveWorkHours * 1500;
 
     result.push({
       dateStr: formattedDate,
@@ -285,26 +224,20 @@ const calculateDailyData = (recordsByDate) => {
       breakTime: formatDuration(breakMinutes),
       dailyWage: dailyWage,
       notes: notes.join(", "),
+      breakPairs: breakPairs.map(pair => ({
+        start: formatTime(pair.start),
+        end: formatTime(pair.end),
+        duration: formatDuration(Math.floor((pair.end.getTime() - pair.start.getTime()) / (1000 * 60)))
+      }))
     });
   }
 
-  // 日付でソート
-  result.sort((a, b) => {
-    const dateA = a.dateStr.split('(')[0].split('/');
-    const dateB = b.dateStr.split('(')[0].split('/');
-
-    const monthA = parseInt(dateA[0]);
-    const dayA = parseInt(dateA[1]);
-
-    const monthB = parseInt(dateB[0]);
-    const dayB = parseInt(dateB[1]);
-
-    if (monthA !== monthB) {
-      return monthA - monthB;
-    }
-
-    return dayA - dayB;
-  });
-
   return result;
 };
+
+// Calculate daily data
+const dailyData = calculateDailyData(recordsByDate);
+
+// Print the results
+console.log("Daily data:");
+console.log(JSON.stringify(dailyData, null, 2));
