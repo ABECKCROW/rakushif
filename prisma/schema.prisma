@@ -20,6 +20,7 @@ model Record {
   user      User       @relation(fields: [userId], references: [id])
   type      RecordType
   timestamp DateTime   @default(now())
+  isModified Boolean   @default(false)
 }
 
 enum RecordType {

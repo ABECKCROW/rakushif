@@ -1,67 +1,36 @@
-import { Record } from "@prisma/client";
+// Test script to verify that the current day is handled correctly
+// This script simulates the scenario described in the issue description
 
-// 時給（円）
-export const HOURLY_RATE = 1500;
+// Import the necessary functions
+const DAYS_OF_WEEK_JP = ["日", "月", "火", "水", "木", "金", "土"];
+const MINUTE_UNIT = 60;
+const HOURLY_RATE = 1500;
 
-// 労働時間の有効分数単位（デフォルト: 60分単位）
-export const MINUTE_UNIT = 60;
-
-// 曜日の日本語表記
-export const DAYS_OF_WEEK_JP = ["日", "月", "火", "水", "木", "金", "土"];
-
-// 日付ごとにレコードをグループ化する関数
-export const groupRecordsByDate = (records: Record[]) => {
-  const groups: { [key: string]: Record[] } = {};
-
-  records.forEach(record => {
-    const date = new Date(record.timestamp);
-    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-    if (!groups[dateStr]) {
-      groups[dateStr] = [];
-    }
-
-    groups[dateStr].push(record);
-  });
-
-  return groups;
-};
-
-// 時刻のフォーマット関数
-export const formatTime = (date: Date | null): string => {
-  if (!date) return "";
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
-
-// 時間のフォーマット（例: 8時間30分 -> 8:30）
-export const formatDuration = (minutes: number): string => {
-  if (minutes < 0) return "";
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}:${mins.toString().padStart(2, '0')}`;
-};
-
-// 日付のフォーマット関数
-export const formatDate = (date: Date): string => {
+// Create a function to format dates for display
+const formatDate = (date) => {
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const dayOfWeek = DAYS_OF_WEEK_JP[date.getDay()];
   return `${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}(${dayOfWeek})`;
 };
 
-export interface DailyData {
-  dateStr: string;
-  startTime: string;
-  endTime: string;
-  workHours: string;
-  breakTime: string;
-  dailyWage: number;
-  notes: string;
-}
+// Create a function to format times for display
+const formatTime = (date) => {
+  if (!date) return "";
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
 
-// 日ごとのデータを計算する関数
-export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): DailyData[] => {
-  const result: DailyData[] = [];
+// Create a function to format durations for display
+const formatDuration = (minutes) => {
+  if (minutes < 0) return "";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}:${mins.toString().padStart(2, '0')}`;
+};
+
+// Reimplementation of calculateDailyData function with the changes
+const calculateDailyData = (recordsByDate) => {
+  const result = [];
   const today = new Date().toISOString().split('T')[0]; // 今日の日付 (YYYY-MM-DD)
 
   for (const dateStr in recordsByDate) {
@@ -76,11 +45,11 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
     records.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     // 出勤・退勤・休憩時間を抽出
-    const workPairs: { start: Date; end: Date }[] = [];
-    const breakPairs: { start: Date; end: Date }[] = [];
-    const startWorkRecords: { time: Date; paired: boolean }[] = []; // 出勤記録を保存する配列
-    let currentBreakPair: { start: Date; end: Date | null } | null = null;
-    let notes: string[] = [];
+    const workPairs = [];
+    const breakPairs = [];
+    const startWorkRecords = []; // 出勤記録を保存する配列
+    let currentBreakPair = null;
+    let notes = [];
 
     // 出勤・退勤・休憩時間のペアを抽出
     let unpairedEndWorkCount = 0;
@@ -128,7 +97,7 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
       } else if (record.type === "END_BREAK") {
         if (currentBreakPair) {
           currentBreakPair.end = time;
-          breakPairs.push({ start: currentBreakPair.start, end: time });
+          breakPairs.push(currentBreakPair);
           currentBreakPair = null;
         } else {
           // 休憩開始なしで休憩終了がある場合
@@ -138,7 +107,7 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
     }
 
     // エラーメッセージを生成
-    let errorMessages: string[] = [];
+    let errorMessages = [];
 
     // 複数の出勤・退勤ペアがある場合（先に判定）
     if (workPairs.length > 1) {
@@ -180,13 +149,13 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
     // 労働時間と休憩時間を計算
     let workMinutes = 0;
     let breakMinutes = 0;
-    let startWorkTime: Date | null = null;
-    let endWorkTime: Date | null = null;
-    let endTimeDisplay: string = ""; // 退勤時刻の表示用
+    let startWorkTime = null;
+    let endWorkTime = null;
+    let endTimeDisplay = ""; // 退勤時刻の表示用
 
     // 未ペアの出勤記録があるか確認
     const unpairedStartWork = startWorkRecords.filter(r => !r.paired);
-
+    
     if (workPairs.length > 0) {
       // 最も早い出勤時刻と最も遅い退勤時刻を使用
       startWorkTime = workPairs.reduce((earliest, pair) => 
@@ -222,7 +191,7 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
       startWorkTime = unpairedStartWork.reduce((earliest, record) => 
         record.time.getTime() < earliest.getTime() ? record.time : earliest, 
         unpairedStartWork[0].time);
-
+      
       // 今日の場合は「勤務中」と表示
       if (isToday) {
         endTimeDisplay = "勤務中";
@@ -245,55 +214,70 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
     });
   }
 
-  // 日付でソート
-  result.sort((a, b) => {
-    const dateA = a.dateStr.split('(')[0].split('/');
-    const dateB = b.dateStr.split('(')[0].split('/');
-
-    const monthA = parseInt(dateA[0]);
-    const dayA = parseInt(dateA[1]);
-
-    const monthB = parseInt(dateB[0]);
-    const dayB = parseInt(dateB[1]);
-
-    if (monthA !== monthB) {
-      return monthA - monthB;
-    }
-
-    return dayA - dayB;
-  });
-
   return result;
 };
 
-// 記録種別の日本語表記
-export const translateType = (type: string): string => {
-  switch (type) {
-    case "START_WORK":
-      return "出勤";
-    case "END_WORK":
-      return "退勤";
-    case "START_BREAK":
-      return "休憩開始";
-    case "END_BREAK":
-      return "休憩終了";
-    default:
-      return type;
-  }
-};
+// Create test records for the current day
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
 
-/**
- * 期間の表示用文字列を生成
- * @param from 開始日
- * @param to 終了日
- * @returns 期間の表示用文字列
- */
-export const getDateRangeString = (from: Date, to: Date): string => {
-  if (from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()) {
-    // 同じ年月の場合は「YYYY年MM月」
-    return `${from.getFullYear()}年${from.getMonth() + 1}月`;
-  } else {
-    // 異なる年月の場合は「YYYY年MM月～YYYY年MM月」
-    return `${from.getFullYear()}年${from.getMonth() + 1}月～${to.getFullYear()}年${to.getMonth() + 1}月`;
+// Create a record for the current day with only a START_WORK record
+const testRecords = [
+  { type: "START_WORK", timestamp: new Date(`${todayStr}T09:00:00`) }
+];
+
+// Group records by date
+const recordsByDate = {};
+testRecords.forEach(record => {
+  const date = record.timestamp;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
+
+  if (!recordsByDate[dateStr]) {
+    recordsByDate[dateStr] = [];
   }
-};
+
+  recordsByDate[dateStr].push(record);
+});
+
+// Calculate daily data
+const dailyData = calculateDailyData(recordsByDate);
+
+// Print the results
+console.log("Daily data for current day:");
+console.log(JSON.stringify(dailyData, null, 2));
+
+// Create test records for a past day
+const pastDate = new Date();
+pastDate.setDate(pastDate.getDate() - 1); // Yesterday
+const pastDateStr = pastDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+// Create a record for the past day with only a START_WORK record
+const pastTestRecords = [
+  { type: "START_WORK", timestamp: new Date(`${pastDateStr}T09:00:00`) }
+];
+
+// Group records by date
+const pastRecordsByDate = {};
+pastTestRecords.forEach(record => {
+  const date = record.timestamp;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
+
+  if (!pastRecordsByDate[dateStr]) {
+    pastRecordsByDate[dateStr] = [];
+  }
+
+  pastRecordsByDate[dateStr].push(record);
+});
+
+// Calculate daily data
+const pastDailyData = calculateDailyData(pastRecordsByDate);
+
+// Print the results
+console.log("\nDaily data for past day:");
+console.log(JSON.stringify(pastDailyData, null, 2));

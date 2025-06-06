@@ -121,6 +121,9 @@ export default function Index() {
       <p>
         <Link to="/records">記録一覧を見る</Link>
       </p>
+      <p>
+        <Link to="/modify">打刻修正</Link>
+      </p>
     </div>
   );
 }
