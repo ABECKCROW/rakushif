@@ -1,5 +1,4 @@
 import { Link, useLoaderData } from "@remix-run/react";
-import { useEffect, useState } from "react";
 import prisma from '~/.server/db/client';
 import { useDateRange } from "~/hooks/useDateRange";
 import {
@@ -7,7 +6,6 @@ import {
   getDateRangeString,
   groupRecordsByDate,
   HOURLY_RATE,
-  translateType,
 } from "~/utils/recordUtils";
 
 export const loader = async ({ request }) => {
@@ -57,7 +55,6 @@ export const loader = async ({ request }) => {
   const monthStr = getDateRangeString(from, to);
 
   return {
-    records,
     dailyData,
     monthlyTotal,
     userName,
@@ -79,23 +76,12 @@ export const RecordsPage = () => {
     getCsvUrl,
   } = useDateRange(data.from, data.to);
 
-  const ClientOnlyDate = ({ timestamp }: { timestamp: Date }) => {
-    const [formatted, setFormatted] = useState("");
-
-    useEffect(() => {
-      const date = new Date(timestamp);
-      setFormatted(date.toLocaleString("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        dateStyle: "medium",
-        timeStyle: "short",
-      }));
-    }, [timestamp]);
-
-    return <>{formatted}</>;
-  };
 
   return (
     <div>
+      <div style={{ marginBottom: "20px" }}>
+        <a href="/">ルートに戻る</a>
+      </div>
       <h1>勤怠記録</h1>
 
       <div style={{ marginBottom: "20px" }}>
@@ -161,23 +147,6 @@ export const RecordsPage = () => {
         </tbody>
       </table>
 
-      <h2>記録一覧</h2>
-      <table border={1} style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-        <tr style={{ backgroundColor: "#ff0000" }}>
-          <th>記録種別</th>
-          <th>日時</th>
-        </tr>
-        </thead>
-        <tbody>
-        {data.records.map((r) => (
-          <tr key={r.id}>
-            <td>{translateType(r.type)}</td>
-            <td><ClientOnlyDate timestamp={r.timestamp} /></td>
-          </tr>
-        ))}
-        </tbody>
-      </table>
 
       <p style={{ marginTop: "20px" }}>
         <Link to={getCsvUrl()} reloadDocument>
@@ -188,19 +157,5 @@ export const RecordsPage = () => {
   );
 };
 
-const translateType = (type: string): string => {
-  switch (type) {
-    case "START_WORK":
-      return "出勤";
-    case "END_WORK":
-      return "退勤";
-    case "START_BREAK":
-      return "休憩開始";
-    case "END_BREAK":
-      return "休憩終了";
-    default:
-      return type;
-  }
-};
 
 export default RecordsPage;
