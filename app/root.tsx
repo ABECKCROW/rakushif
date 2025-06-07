@@ -6,8 +6,15 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
+import { ChakraProvider, extendTheme } from "@chakra-ui/react";
 
-import "./tailwind.css";
+// Define the theme
+const theme = extendTheme({
+  fonts: {
+    body: "Inter, system-ui, sans-serif",
+    heading: "Inter, system-ui, sans-serif",
+  },
+});
 
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -41,5 +48,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <ChakraProvider theme={theme}>
+      <Outlet />
+    </ChakraProvider>
+  );
 }

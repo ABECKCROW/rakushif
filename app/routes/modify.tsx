@@ -1,12 +1,19 @@
 import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData, Link } from "@remix-run/react";
 import { useState } from "react";
 import prisma from "~/.server/db/client";
-import stylesUrl from "../styles/index.css?url";
-
-export function links() {
-  return [{ rel: "stylesheet", href: stylesUrl }];
-}
+import {
+  Box,
+  Button,
+  Container,
+  FormControl,
+  FormLabel,
+  Heading,
+  Input,
+  Link as ChakraLink,
+  Select,
+  VStack,
+} from '@chakra-ui/react';
 
 // Define the type for the form data
 type RecordFormData = {
@@ -36,72 +43,74 @@ export default function ModifyRecord() {
   };
 
   return (
-    <div>
-      <h1>打刻修正</h1>
-      <div style={{ marginBottom: "20px" }}>
-        <a href="/">ルートに戻る</a>
-      </div>
+    <Container maxW="container.md" py={8}>
+      <VStack spacing={6} align="stretch">
+        <Box>
+          <ChakraLink as={Link} to="/" color="blue.500" mb={4} display="inline-block">
+            ルートに戻る
+          </ChakraLink>
+          <Heading as="h1" size="xl" mt={2}>打刻修正</Heading>
+        </Box>
 
-      <Form method="post">
-        <div style={{ marginBottom: "15px" }}>
-          <label htmlFor="date" style={{ display: "block", marginBottom: "5px" }}>
-            日付:
-          </label>
-          <input
-            type="date"
-            id="date"
-            name="date"
-            value={formData.date}
-            onChange={handleChange}
-            required
-            style={{ padding: "8px", width: "200px" }}
-          />
-        </div>
+        <Box as={Form} method="post">
+          <VStack spacing={4} align="stretch">
+            <FormControl isRequired>
+              <FormLabel htmlFor="date">日付:</FormLabel>
+              <Input
+                type="date"
+                id="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                width="100%"
+                maxW="300px"
+              />
+            </FormControl>
 
-        <div style={{ marginBottom: "15px" }}>
-          <label htmlFor="time" style={{ display: "block", marginBottom: "5px" }}>
-            時刻:
-          </label>
-          <input
-            type="time"
-            id="time"
-            name="time"
-            value={formData.time}
-            onChange={handleChange}
-            required
-            style={{ padding: "8px", width: "200px" }}
-          />
-        </div>
+            <FormControl isRequired>
+              <FormLabel htmlFor="time">時刻:</FormLabel>
+              <Input
+                type="time"
+                id="time"
+                name="time"
+                value={formData.time}
+                onChange={handleChange}
+                width="100%"
+                maxW="300px"
+              />
+            </FormControl>
 
-        <div style={{ marginBottom: "15px" }}>
-          <label htmlFor="type" style={{ display: "block", marginBottom: "5px" }}>
-            記録種別:
-          </label>
-          <select
-            id="type"
-            name="type"
-            value={formData.type}
-            onChange={handleChange}
-            required
-            style={{ padding: "8px", width: "200px" }}
-          >
-            {recordTypes.map((type) => (
-              <option key={type} value={type}>
-                {translateType(type)}
-              </option>
-            ))}
-          </select>
-        </div>
+            <FormControl isRequired>
+              <FormLabel htmlFor="type">記録種別:</FormLabel>
+              <Select
+                id="type"
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                width="100%"
+                maxW="300px"
+              >
+                {recordTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {translateType(type)}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
 
-        <button
-          type="submit"
-          className="btn"
-          style={{ marginTop: "10px" }}
-        >
-          打刻修正
-        </button>
-      </Form>
-    </div>
+            <Button
+              type="submit"
+              colorScheme="blue"
+              mt={4}
+              width="100%"
+              maxW="300px"
+            >
+              打刻修正
+            </Button>
+          </VStack>
+        </Box>
+      </VStack>
+    </Container>
   );
 }
 

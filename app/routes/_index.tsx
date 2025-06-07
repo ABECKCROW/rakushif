@@ -2,11 +2,17 @@ import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
 import { Form, Link, useLoaderData } from '@remix-run/react';
 import { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
-import stylesUrl from '../styles/index.css?url';
-
-export function links() {
-  return [{ rel: "stylesheet", href: stylesUrl }];
-}
+import { 
+  Box, 
+  Button, 
+  Container, 
+  Heading, 
+  HStack, 
+  Text, 
+  VStack,
+  Badge,
+  Code
+} from '@chakra-ui/react';
 
 // ステータスの種類
 type Status = 'WORKING' | 'ON_BREAK' | 'NOT_WORKING';
@@ -74,18 +80,19 @@ function RealtimeClock() {
   const seconds = currentTime.getSeconds().toString().padStart(2, '0');
 
   return (
-    <div className="clock" style={{ 
-      display: 'inline-block',
-      fontFamily: 'monospace',
-      fontSize: '1.2em',
-      fontWeight: 'bold',
-      padding: '4px 8px',
-      backgroundColor: '#ff0000',
-      borderRadius: '4px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-    }}>
-      <span>{hours}:{minutes}:{seconds}</span>
-    </div>
+    <Code
+      display="inline-block"
+      fontFamily="monospace"
+      fontSize="1.2em"
+      fontWeight="bold"
+      p={2}
+      bg="red.500"
+      color="white"
+      borderRadius="md"
+      boxShadow="sm"
+    >
+      {hours}:{minutes}:{seconds}
+    </Code>
   );
 }
 
@@ -93,38 +100,83 @@ export default function Index() {
   const { status } = useLoaderData<{ status: Status }>();
 
   return (
-    <div>
-      <h1>出退勤打刻</h1>
+    <Container maxW="container.md" py={8}>
+      <VStack spacing={6} align="stretch">
+        <Heading as="h1" size="xl">出退勤打刻</Heading>
 
-      <div style={{ marginBottom: '20px' }}>
-        <h2>現在のステータス: {statusText[status]}</h2>
-        <h3>現在時刻: <RealtimeClock /></h3>
-      </div>
+        <Box mb={6}>
+          <Heading as="h2" size="md" mb={2}>
+            現在のステータス: 
+            <Badge ml={2} colorScheme={
+              status === 'WORKING' ? 'green' : 
+              status === 'ON_BREAK' ? 'orange' : 
+              'gray'
+            }>
+              {statusText[status]}
+            </Badge>
+          </Heading>
+          <Heading as="h3" size="sm">
+            現在時刻: <RealtimeClock />
+          </Heading>
+        </Box>
 
-      <Form method="post">
-        {status === 'NOT_WORKING' && (
-          <button className="btn" type="submit" name="type" value="START_WORK">出勤</button>
-        )}
+        <Form method="post">
+          <HStack spacing={4}>
+            {status === 'NOT_WORKING' && (
+              <Button 
+                type="submit" 
+                name="type" 
+                value="START_WORK"
+                colorScheme="blue"
+              >
+                出勤
+              </Button>
+            )}
 
-        {status === 'WORKING' && (
-          <>
-            <button className="btn" type="submit" name="type" value="END_WORK">退勤</button>
-            <button className="btn" type="submit" name="type" value="START_BREAK">休憩開始</button>
-          </>
-        )}
+            {status === 'WORKING' && (
+              <>
+                <Button 
+                  type="submit" 
+                  name="type" 
+                  value="END_WORK"
+                  colorScheme="red"
+                >
+                  退勤
+                </Button>
+                <Button 
+                  type="submit" 
+                  name="type" 
+                  value="START_BREAK"
+                  colorScheme="orange"
+                >
+                  休憩開始
+                </Button>
+              </>
+            )}
 
-        {status === 'ON_BREAK' && (
-          <button className="btn" type="submit" name="type" value="END_BREAK">休憩終了</button>
-        )}
-      </Form>
+            {status === 'ON_BREAK' && (
+              <Button 
+                type="submit" 
+                name="type" 
+                value="END_BREAK"
+                colorScheme="green"
+              >
+                休憩終了
+              </Button>
+            )}
+          </HStack>
+        </Form>
 
-      <p>
-        <Link to="/records">記録一覧を見る</Link>
-      </p>
-      <p>
-        <Link to="/modify">打刻修正</Link>
-      </p>
-    </div>
+        <VStack spacing={2} align="start" mt={4}>
+          <Link to="/records">
+            <Text color="blue.500">記録一覧を見る</Text>
+          </Link>
+          <Link to="/modify">
+            <Text color="blue.500">打刻修正</Text>
+          </Link>
+        </VStack>
+      </VStack>
+    </Container>
   );
 }
 

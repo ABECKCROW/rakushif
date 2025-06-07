@@ -7,6 +7,26 @@ import {
   groupRecordsByDate,
   HOURLY_RATE,
 } from "~/utils/recordUtils";
+import {
+  Box,
+  Button,
+  Container,
+  Flex,
+  FormControl,
+  FormLabel,
+  Heading,
+  HStack,
+  Input,
+  Link as ChakraLink,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
 
 export const loader = async ({ request }) => {
   const userId = 1; // 仮ユーザーID
@@ -78,82 +98,95 @@ export const RecordsPage = () => {
 
 
   return (
-    <div>
-      <div style={{ marginBottom: "20px" }}>
-        <a href="/">ルートに戻る</a>
-      </div>
-      <h1>勤怠記録</h1>
+    <Container maxW="container.xl" py={8}>
+      <VStack spacing={6} align="stretch">
+        <Box>
+          <ChakraLink as={Link} to="/" color="blue.500" mb={4} display="inline-block">
+            ルートに戻る
+          </ChakraLink>
+          <Heading as="h1" size="xl" mt={2}>勤怠記録</Heading>
+        </Box>
 
-      <div style={{ marginBottom: "20px" }}>
-        <h2>期間選択</h2>
-        <form method="get" action="/records">
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <label>
-              開始日:
-              <input
-                type="date"
-                name="from"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </label>
-            <label>
-              終了日:
-              <input
-                type="date"
-                name="to"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </label>
-            <button type="submit">表示更新</button>
-          </div>
-        </form>
-      </div>
+        <Box>
+          <Heading as="h2" size="md" mb={4}>期間選択</Heading>
+          <Box as="form" method="get" action="/records">
+            <Flex gap={4} alignItems="center" flexWrap="wrap">
+              <FormControl w="auto">
+                <FormLabel htmlFor="from">開始日:</FormLabel>
+                <Input
+                  id="from"
+                  type="date"
+                  name="from"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </FormControl>
+              <FormControl w="auto">
+                <FormLabel htmlFor="to">終了日:</FormLabel>
+                <Input
+                  id="to"
+                  type="date"
+                  name="to"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </FormControl>
+              <Button type="submit" colorScheme="blue" mt={8}>
+                表示更新
+              </Button>
+            </Flex>
+          </Box>
+        </Box>
 
-      <h2>月別サマリー</h2>
-      <p>ユーザー: {data.userName} / 月: {data.monthStr} / 時給: {HOURLY_RATE.toLocaleString()}円</p>
+        <Box>
+          <Heading as="h2" size="md" mb={2}>月別サマリー</Heading>
+          <Text mb={4}>
+            ユーザー: {data.userName} / 月: {data.monthStr} / 時給: {HOURLY_RATE.toLocaleString()}円
+          </Text>
 
-      <table border={1} style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-        <tr style={{ backgroundColor: "#ff0000" }}>
-          <th>日付</th>
-          <th>出勤時刻</th>
-          <th>退勤時刻</th>
-          <th>労働時間</th>
-          <th>休憩時間</th>
-          <th>日給</th>
-          <th>備考</th>
-        </tr>
-        </thead>
-        <tbody>
-        {data.dailyData.map((day, index) => (
-          <tr key={index}>
-            <td>{day.dateStr}</td>
-            <td>{day.startTime}</td>
-            <td>{day.endTime}</td>
-            <td>{day.workHours}</td>
-            <td>{day.breakTime}</td>
-            <td>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</td>
-            <td>{day.notes}</td>
-          </tr>
-        ))}
-        <tr style={{ fontWeight: "bold", backgroundColor: "#ff0000" }}>
-          <td colSpan={4}></td>
-          <td>月給合計</td>
-          <td>{data.monthlyTotal.toLocaleString()}円</td>
-          <td></td>
-        </tr>
-        </tbody>
-      </table>
+          <Box overflowX="auto">
+            <Table variant="simple" size="md" borderWidth="1px">
+              <Thead>
+                <Tr bg="red.500">
+                  <Th color="white">日付</Th>
+                  <Th color="white">出勤時刻</Th>
+                  <Th color="white">退勤時刻</Th>
+                  <Th color="white">労働時間</Th>
+                  <Th color="white">休憩時間</Th>
+                  <Th color="white">日給</Th>
+                  <Th color="white">備考</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {data.dailyData.map((day, index) => (
+                  <Tr key={index}>
+                    <Td>{day.dateStr}</Td>
+                    <Td>{day.startTime}</Td>
+                    <Td>{day.endTime}</Td>
+                    <Td>{day.workHours}</Td>
+                    <Td>{day.breakTime}</Td>
+                    <Td>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</Td>
+                    <Td>{day.notes}</Td>
+                  </Tr>
+                ))}
+                <Tr fontWeight="bold" bg="red.500">
+                  <Td colSpan={4}></Td>
+                  <Td color="white">月給合計</Td>
+                  <Td color="white">{data.monthlyTotal.toLocaleString()}円</Td>
+                  <Td></Td>
+                </Tr>
+              </Tbody>
+            </Table>
+          </Box>
+        </Box>
 
-
-      <p style={{ marginTop: "20px" }}>
-        <Link to={getCsvUrl()} reloadDocument>
-          📥 CSVをダウンロード
-        </Link>
-      </p>
-    </div>
+        <Box mt={6}>
+          <ChakraLink as={Link} to={getCsvUrl()} reloadDocument color="blue.500">
+            📥 CSVをダウンロード
+          </ChakraLink>
+        </Box>
+      </VStack>
+    </Container>
   );
 };
 
