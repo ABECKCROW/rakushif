@@ -10,9 +10,9 @@ import {
   FormLabel,
   Heading,
   Input,
-  Link as ChakraLink,
   Select,
   VStack,
+  useToast,
 } from '@chakra-ui/react';
 
 // Define the type for the form data
@@ -32,82 +32,138 @@ export const loader: LoaderFunction = async () => {
 export default function ModifyRecord() {
   const { recordTypes } = useLoaderData<typeof loader>();
   const [formData, setFormData] = useState<RecordFormData>({
-    date: new Date().toISOString().split("T")[0], // Default to today
-    time: new Date().toTimeString().split(" ")[0].substring(0, 5), // Default to current time (HH:MM)
-    type: "START_WORK", // Default type
+    date: "", // No default value
+    time: "", // No default value
+    type: "", // No default value
   });
+
+  // Initialize toast
+  const toast = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Check if all fields are filled
+  const isFormValid = formData.date !== "" && formData.time !== "" && formData.type !== "";
+
   return (
     <Container maxW="container.md" py={8}>
       <VStack spacing={6} align="stretch">
-        <Box>
-          <ChakraLink as={Link} to="/" color="blue.500" mb={4} display="inline-block">
-            ルートに戻る
-          </ChakraLink>
-          <Heading as="h1" size="xl" mt={2}>打刻修正</Heading>
+        <Box 
+          bg="blue.500" 
+          color="white" 
+          p={4} 
+          borderRadius="md" 
+          width="100%" 
+          display="flex" 
+          justifyContent="space-between" 
+          alignItems="center"
+        >
+          <Heading as="h1" size="xl">打刻修正</Heading>
+          <Link to="/">
+            <Button 
+              size="sm" 
+              colorScheme="whiteAlpha"
+              _active={{
+                transform: 'scale(0.95)',
+                transition: 'transform 0.1s'
+              }}
+            >
+              ホームに戻る
+            </Button>
+          </Link>
         </Box>
 
-        <Box as={Form} method="post">
-          <VStack spacing={4} align="stretch">
-            <FormControl isRequired>
-              <FormLabel htmlFor="date">日付:</FormLabel>
-              <Input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                width="100%"
-                maxW="300px"
-              />
-            </FormControl>
+        <Box p={6} borderRadius="lg">
+          <Form method="post" onSubmit={() => {
+            // Get the translated type for display
+            const typeText = translateType(formData.type);
+            // Format the date for display
+            const dateObj = new Date(formData.date);
+            const formattedDate = `${dateObj.getFullYear()}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}`;
 
-            <FormControl isRequired>
-              <FormLabel htmlFor="time">時刻:</FormLabel>
-              <Input
-                type="time"
-                id="time"
-                name="time"
-                value={formData.time}
-                onChange={handleChange}
-                width="100%"
-                maxW="300px"
-              />
-            </FormControl>
+            toast({
+              title: "打刻修正を記録しました",
+              description: `${formattedDate} ${formData.time} - ${typeText}`,
+              status: "success",
+              duration: 3000,
+              isClosable: true,
+              position: "top"
+            });
 
-            <FormControl isRequired>
-              <FormLabel htmlFor="type">記録種別:</FormLabel>
-              <Select
-                id="type"
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
+            // Reset form after submission
+            setTimeout(() => {
+              setFormData({
+                date: "",
+                time: "",
+                type: "",
+              });
+            }, 100);
+          }}>
+            <VStack spacing={4} align="stretch">
+              <FormControl isRequired>
+                <FormLabel htmlFor="date">日付:</FormLabel>
+                <Input
+                  type="date"
+                  id="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  width="100%"
+                  maxW="300px"
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel htmlFor="time">時刻:</FormLabel>
+                <Input
+                  type="time"
+                  id="time"
+                  name="time"
+                  value={formData.time}
+                  onChange={handleChange}
+                  width="100%"
+                  maxW="300px"
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel htmlFor="type">記録種別:</FormLabel>
+                <Select
+                  id="type"
+                  name="type"
+                  value={formData.type}
+                  onChange={handleChange}
+                  width="100%"
+                  maxW="300px"
+                  placeholder="選択してください"
+                >
+                  {recordTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {translateType(type)}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Button
+                type="submit"
+                colorScheme="blue"
+                mt={4}
                 width="100%"
                 maxW="300px"
+                isDisabled={!isFormValid}
+                _active={{
+                  transform: 'scale(0.95)',
+                  transition: 'transform 0.1s'
+                }}
               >
-                {recordTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {translateType(type)}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Button
-              type="submit"
-              colorScheme="blue"
-              mt={4}
-              width="100%"
-              maxW="300px"
-            >
-              打刻修正
-            </Button>
-          </VStack>
+                打刻修正
+              </Button>
+            </VStack>
+          </Form>
         </Box>
       </VStack>
     </Container>

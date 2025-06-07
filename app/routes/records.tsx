@@ -1,4 +1,5 @@
-import { Link, useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData, useSearchParams } from "@remix-run/react";
+import { useEffect } from "react";
 import prisma from '~/.server/db/client';
 import { useDateRange } from "~/hooks/useDateRange";
 import {
@@ -15,7 +16,6 @@ import {
   FormControl,
   FormLabel,
   Heading,
-  HStack,
   Input,
   Link as ChakraLink,
   Table,
@@ -26,6 +26,7 @@ import {
   Td,
   Text,
   VStack,
+  useToast,
 } from '@chakra-ui/react';
 
 export const loader = async ({ request }) => {
@@ -86,6 +87,7 @@ export const loader = async ({ request }) => {
 
 export const RecordsPage = () => {
   const data = useLoaderData<typeof loader>();
+  const [searchParams] = useSearchParams();
 
   // 日付範囲の状態管理にカスタムフックを使用
   const {
@@ -96,96 +98,209 @@ export const RecordsPage = () => {
     getCsvUrl,
   } = useDateRange(data.from, data.to);
 
+  // Initialize toast
+  const toast = useToast();
+
+  // Show toast after page load if showToast parameter is present
+  useEffect(() => {
+    if (searchParams.get("showToast") === "true") {
+      toast({
+        title: "表示を更新しました",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+    }
+
+    // More robust blur mechanism that runs multiple times
+    const blurActiveElement = () => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    };
+
+    // Blur immediately
+    blurActiveElement();
+
+    // Blur again after a short delay to catch any elements that might get focused later
+    const timeoutIds = [
+      setTimeout(blurActiveElement, 100),
+      setTimeout(blurActiveElement, 300),
+      setTimeout(blurActiveElement, 500)
+    ];
+
+    return () => {
+      // Clean up timeouts
+      timeoutIds.forEach(id => clearTimeout(id));
+    };
+  }, [searchParams, toast]);
+
 
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        <Box>
-          <ChakraLink as={Link} to="/" color="blue.500" mb={4} display="inline-block">
-            ルートに戻る
-          </ChakraLink>
-          <Heading as="h1" size="xl" mt={2}>勤怠記録</Heading>
+          <Box
+            bg="blue.500"
+            color="white"
+            p={4}
+            borderRadius="md"
+            width="100%"
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Heading as="h1" size="xl">勤怠記録</Heading>
         </Box>
 
         <Box>
-          <Heading as="h2" size="md" mb={4}>期間選択</Heading>
-          <Box as="form" method="get" action="/records">
-            <Flex gap={4} alignItems="center" flexWrap="wrap">
+          <Heading as="h2" size="lg" mb={4}>期間選択</Heading>
+          <Box 
+            as="form" 
+            method="get" 
+            action="/records" 
+            p={4}
+            borderRadius="lg"
+            boxShadow="sm"
+            bg="white"
+            onSubmit={(e) => {
+            e.preventDefault(); // Prevent default form submission
+
+            // Get form data
+            const formData = new FormData(e.currentTarget);
+            const from = formData.get("from");
+            const to = formData.get("to");
+
+            // Navigate to the new URL with a showToast parameter
+            window.location.href = `/records?from=${from}&to=${to}&showToast=true`;
+          }}>
+            <Flex gap={6} alignItems="center" flexWrap="wrap" py={4}>
               <FormControl w="auto">
-                <FormLabel htmlFor="from">開始日:</FormLabel>
+                <FormLabel htmlFor="from" fontSize="lg">開始日:</FormLabel>
                 <Input
                   id="from"
                   type="date"
                   name="from"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
+                  whiteSpace="nowrap"
+                  size="lg"
+                  h="50px"
+                  fontSize="lg"
                 />
               </FormControl>
               <FormControl w="auto">
-                <FormLabel htmlFor="to">終了日:</FormLabel>
+                <FormLabel htmlFor="to" fontSize="lg">終了日:</FormLabel>
                 <Input
                   id="to"
                   type="date"
                   name="to"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
+                  whiteSpace="nowrap"
+                  size="lg"
+                  h="50px"
+                  fontSize="lg"
                 />
               </FormControl>
-              <Button type="submit" colorScheme="blue" mt={8}>
-                表示更新
+
+              <Button 
+                type="submit" 
+                colorScheme="blue" 
+                mt={8}
+                size="lg"
+                h="50px"
+                px={6}
+                fontSize="lg"
+                _active={{
+                  transform: 'scale(0.95)',
+                  transition: 'transform 0.1s'
+                }}
+              >
+                更新
+              </Button>
+              <Button
+                size="lg"
+                h="50px"
+                px={6}
+                mt={8}
+                fontSize="lg"
+                _active={{
+                  transform: 'scale(0.95)',
+                  transition: 'transform 0.1s'
+                }}
+                onClick={() => {
+                  toast({
+                    title: "CSVをダウンロードしました",
+                    status: "success",
+                    duration: 3000,
+                    isClosable: true,
+                    position: "top"
+                  });
+                }}
+              >
+                <ChakraLink as={Link} to={getCsvUrl()} reloadDocument color="blue.500">
+                  📥 CSV
+                </ChakraLink>
               </Button>
             </Flex>
           </Box>
         </Box>
 
         <Box>
-          <Heading as="h2" size="md" mb={2}>月別サマリー</Heading>
-          <Text mb={4}>
-            ユーザー: {data.userName} / 月: {data.monthStr} / 時給: {HOURLY_RATE.toLocaleString()}円
-          </Text>
-
+          <Heading as="h2" size="lg" mb={2}>月別サマリー</Heading>
           <Box overflowX="auto">
-            <Table variant="simple" size="md" borderWidth="1px">
+            <Table variant="simple" size="lg">
               <Thead>
-                <Tr bg="red.500">
-                  <Th color="white">日付</Th>
-                  <Th color="white">出勤時刻</Th>
-                  <Th color="white">退勤時刻</Th>
-                  <Th color="white">労働時間</Th>
-                  <Th color="white">休憩時間</Th>
-                  <Th color="white">日給</Th>
-                  <Th color="white">備考</Th>
+                <Tr bg="red.300">
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>日付</Th>
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>出勤時刻</Th>
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>退勤時刻</Th>
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>労働時間</Th>
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>休憩時間</Th>
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>日給</Th>
+                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>備考</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {data.dailyData.map((day, index) => (
                   <Tr key={index}>
-                    <Td>{day.dateStr}</Td>
-                    <Td>{day.startTime}</Td>
-                    <Td>{day.endTime}</Td>
-                    <Td>{day.workHours}</Td>
-                    <Td>{day.breakTime}</Td>
-                    <Td>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</Td>
-                    <Td>{day.notes}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.dateStr}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.startTime}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.endTime}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.workHours}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.breakTime}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.notes}</Td>
                   </Tr>
                 ))}
-                <Tr fontWeight="bold" bg="red.500">
-                  <Td colSpan={4}></Td>
-                  <Td color="white">月給合計</Td>
-                  <Td color="white">{data.monthlyTotal.toLocaleString()}円</Td>
-                  <Td></Td>
+                <Tr fontWeight="bold" bg="red.300">
+                  <Td colSpan={4} p={4}></Td>
+                  <Td color="white" whiteSpace="nowrap" fontSize="lg" p={4}>月給合計</Td>
+                  <Td color="white" whiteSpace="nowrap" fontSize="lg" p={4}>{data.monthlyTotal.toLocaleString()}円</Td>
+                  <Td p={4}></Td>
                 </Tr>
               </Tbody>
             </Table>
           </Box>
         </Box>
-
-        <Box mt={6}>
-          <ChakraLink as={Link} to={getCsvUrl()} reloadDocument color="blue.500">
-            📥 CSVをダウンロード
-          </ChakraLink>
-        </Box>
       </VStack>
+      <Link to="/">
+        <Button 
+          size="lg" 
+          colorScheme="blue"
+          h="50px"
+          px={6}
+          fontSize="lg"
+          mt={4}
+          _active={{
+            transform: 'scale(0.95)',
+            transition: 'transform 0.1s'
+          }}
+        >
+          ホームに戻る
+        </Button>
+      </Link>
     </Container>
   );
 };

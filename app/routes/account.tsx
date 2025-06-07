@@ -43,7 +43,16 @@ export default function Account() {
           >
             <Heading as="h1" size="xl">アカウント情報</Heading>
             <Link to="/">
-              <Button size="sm" colorScheme="whiteAlpha">ホームに戻る</Button>
+              <Button 
+                size="sm" 
+                colorScheme="whiteAlpha"
+                _active={{
+                  transform: 'scale(0.95)',
+                  transition: 'transform 0.1s'
+                }}
+              >
+                ホームに戻る
+              </Button>
             </Link>
           </Box>
           <Text>ユーザー情報が見つかりませんでした。</Text>
@@ -68,26 +77,26 @@ export default function Account() {
           <Heading as="h1" size="xl">アカウント情報</Heading>
         </Box>
 
-        <Box p={6} borderWidth="1px" borderRadius="lg">
+        <Box p={6} borderRadius="lg">
           <VStack spacing={4} align="stretch">
             <Heading as="h2" size="md">ユーザー情報</Heading>
             <Divider />
-            
+
             <FormControl>
               <FormLabel>ユーザーID</FormLabel>
               <Input value={user.id} isReadOnly />
             </FormControl>
-            
+
             <FormControl>
               <FormLabel>名前</FormLabel>
               <Input value={user.name} isReadOnly />
             </FormControl>
-            
+
             <FormControl>
               <FormLabel>メールアドレス</FormLabel>
               <Input value={user.email} isReadOnly />
             </FormControl>
-            
+
             <Text fontSize="sm" color="gray.500">
               ※ 現在のバージョンでは、アカウント情報の編集機能は実装されていません。
             </Text>
@@ -95,7 +104,15 @@ export default function Account() {
         </Box>
 
         <Link to="/">
-          <Button colorScheme="blue">ホームに戻る</Button>
+          <Button 
+            colorScheme="blue"
+            _active={{
+              transform: 'scale(0.95)',
+              transition: 'transform 0.1s'
+            }}
+          >
+            ホームに戻る
+          </Button>
         </Link>
       </VStack>
     </Container>

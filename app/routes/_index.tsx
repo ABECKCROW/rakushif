@@ -11,7 +11,7 @@ import {
   Text, 
   VStack,
   Badge,
-  Code
+  useToast
 } from '@chakra-ui/react';
 
 // ステータスの種類
@@ -57,28 +57,49 @@ export const loader: LoaderFunction = async () => {
     }
   }
 
-  return { status, user };
+  // 今日の記録を取得
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+  const todayRecords = await prisma.record.findMany({
+    where: {
+      userId,
+      timestamp: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    },
+    orderBy: { timestamp: 'asc' },
+  });
+
+  return { status, user, todayRecords };
 };
 
 // リアルタイムクロックコンポーネント
 function RealtimeClock() {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
-  // 1秒ごとに現在時刻を更新
   useEffect(() => {
-    const updateTime = () => {
+    const now = new Date();
+    setCurrentTime(now);
+
+    const timer = setInterval(() => {
       setCurrentTime(new Date());
-    };
+    }, 1000);
 
-    // 初回実行
-    updateTime();
-
-    // 1秒ごとに更新
-    const timer = setInterval(updateTime, 1000);
-
-    // クリーンアップ関数
     return () => clearInterval(timer);
   }, []);
+
+  if (!currentTime) {
+    return null;
+  }
+
+  // 日付のフォーマット (yyyy/MM/dd)
+  const year = currentTime.getFullYear();
+  const month = (currentTime.getMonth() + 1).toString().padStart(2, '0');
+  const day = currentTime.getDate().toString().padStart(2, '0');
+  const formattedDate = `${year}/${month}/${day}`;
 
   // 時刻のフォーマット (hh:mm:ss)
   const hours = currentTime.getHours().toString().padStart(2, '0');
@@ -86,101 +107,297 @@ function RealtimeClock() {
   const seconds = currentTime.getSeconds().toString().padStart(2, '0');
 
   return (
-    <Code
-      display="inline-block"
-      fontFamily="monospace"
-      fontSize="1.2em"
-      fontWeight="bold"
-      p={2}
-      bg="red.500"
-      color="white"
-      borderRadius="md"
-      boxShadow="sm"
-    >
-      {hours}:{minutes}:{seconds}
-    </Code>
+    <VStack spacing={1}>
+      <Text
+        fontSize="sm"
+        fontWeight="medium"
+      >
+        {formattedDate}
+      </Text>
+      <Text
+        fontSize="6xl"
+        fontWeight="bold"
+        letterSpacing="wider"
+      >
+        {hours}:{minutes}:{seconds}
+      </Text>
+    </VStack>
   );
 }
 
+// 打刻時間を表示するコンポーネント
+function TodayRecords({ records }: { records: any[] }) {
+  if (records.length === 0) {
+    return null;
+  }
+
+  // 記録タイプの日本語表示
+  const recordTypeText = {
+    START_WORK: '出勤',
+    END_WORK: '退勤',
+    START_BREAK: '休憩開始',
+    END_BREAK: '休憩終了'
+  };
+
+  // 時刻のフォーマット
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  return (
+    <VStack spacing={1} width="100%" fontSize="xs" mt={2}>
+      {records.map((record, index) => (
+        <HStack key={index} width="100%" justifyContent="center" spacing={4}>
+          <Text fontWeight="bold">{recordTypeText[record.type as keyof typeof recordTypeText]}:</Text>
+          <Text>{formatTime(record.timestamp)}</Text>
+        </HStack>
+      ))}
+    </VStack>
+  );
+}
+
+// 出勤時の励ましメッセージ
+const startWorkMessages = [
+  "今日も一日頑張りましょう！",
+  "素晴らしい一日になりますように！",
+  "今日も元気に頑張りましょう！",
+  "今日の仕事も順調に進みますように！",
+  "新しい一日の始まりです！頑張りましょう！"
+];
+
+// 退勤時の励ましメッセージ
+const endWorkMessages = [
+  "今日も一日お疲れ様でした！",
+  "素晴らしい仕事ぶりでした！",
+  "ゆっくり休んでください！",
+  "明日も素晴らしい一日になりますように！",
+  "今日の頑張りに感謝します！"
+];
+
+// 休憩開始時の励ましメッセージ
+const startBreakMessages = [
+  "しっかり休憩して、リフレッシュしましょう！",
+  "少し休んで、英気を養いましょう！",
+  "休憩は大切です！しっかり休んでください！",
+  "コーヒーでも飲んでリラックスしましょう！",
+  "休憩時間を楽しんでください！"
+];
+
+// 休憩終了時の励ましメッセージ
+const endBreakMessages = [
+  "リフレッシュできましたか？また頑張りましょう！",
+  "休憩後も引き続き頑張りましょう！",
+  "英気を養えましたか？残りの仕事も頑張りましょう！",
+  "休憩後も素晴らしい仕事を期待しています！",
+  "さあ、また仕事に戻りましょう！"
+];
+
+// ランダムなメッセージを取得する関数
+function getRandomMessage(messages: string[]): string {
+  const randomIndex = Math.floor(Math.random() * messages.length);
+  return messages[randomIndex];
+}
+
 export default function Index() {
-  const { status, user } = useLoaderData<{ status: Status, user: { id: number, name: string, email: string } | null }>();
+  const { status, user, todayRecords } = useLoaderData<{ 
+    status: Status, 
+    user: { id: number, name: string, email: string } | null,
+    todayRecords: any[]
+  }>();
+
+  // Initialize toast
+  const toast = useToast();
 
   return (
     <Container maxW="container.md" py={8}>
       <VStack spacing={6} align="stretch">
-        <Heading as="h1" size="xl">出退勤打刻</Heading>
-
-        <Box mb={6}>
-          <Heading as="h2" size="md" mb={2}>
-            現在のステータス: 
-            <Badge ml={2} colorScheme={
-              status === 'WORKING' ? 'green' : 
-              status === 'ON_BREAK' ? 'orange' : 
-              'gray'
-            }>
-              {statusText[status]}
-            </Badge>
-          </Heading>
-          <Heading as="h3" size="sm">
-            現在時刻: <RealtimeClock />
-          </Heading>
+        <Box 
+          bg="blue.500" 
+          color="white" 
+          p={4} 
+          borderRadius="md" 
+          width="100%" 
+          display="flex" 
+          justifyContent="space-between" 
+          alignItems="center"
+        >
+          <Heading as="h1" size="xl">出退勤打刻</Heading>
+          {user && (
+            <HStack spacing={2}>
+              <Link to="/account">
+                <Button size="sm" colorScheme="whiteAlpha" _active={{
+                  transform: 'scale(0.95)',
+                  transition: 'transform 0.1s',
+                }}>{user.name}</Button>
+              </Link>
+            </HStack>
+          )}
         </Box>
 
-        <Form method="post">
-          <HStack spacing={4}>
-            {status === 'NOT_WORKING' && (
-              <Button 
-                type="submit" 
-                name="type" 
-                value="START_WORK"
-                colorScheme="blue"
-              >
-                出勤
-              </Button>
-            )}
+        <Box p={6} borderRadius="lg">
+          <VStack spacing={6} align="center">
+            <Badge 
+              fontSize="sm" 
+              colorScheme={
+                status === 'WORKING' ? 'green' : 
+                status === 'ON_BREAK' ? 'orange' : 
+                'gray'
+              }
+              p={1}
+              borderRadius="md"
+            >
+              {statusText[status]}
+            </Badge>
 
-            {status === 'WORKING' && (
-              <>
+            <Box 
+              p={6}
+              bg="gray.50"
+              borderRadius="lg"
+              boxShadow="md"
+              width="100%"
+              textAlign="center"
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <RealtimeClock />
+            </Box>
+
+            <TodayRecords records={todayRecords} />
+
+            <Form method="post" width="100%" onSubmit={(e) => {
+              // Get the button value and store form reference
+              const form = e.currentTarget;
+              const formData = new FormData(form);
+              const type = formData.get("type") as string;
+
+              // Show toast with random encouraging message based on action type
+              let title = "";
+              switch(type) {
+                case "START_WORK":
+                  title = getRandomMessage(startWorkMessages);
+                  break;
+                case "END_WORK":
+                  title = getRandomMessage(endWorkMessages);
+                  break;
+                case "START_BREAK":
+                  title = getRandomMessage(startBreakMessages);
+                  break;
+                case "END_BREAK":
+                  title = getRandomMessage(endBreakMessages);
+                  break;
+              }
+
+              toast({
+                title: title,
+                status: "success",
+                duration: 3000,
+                isClosable: true,
+                position: "top"
+              });
+
+            }}>
+              <VStack spacing={4} width="100%">
+                {status === 'NOT_WORKING' && (
+                  <Button 
+                    type="submit" 
+                    name="type" 
+                    value="START_WORK"
+                    colorScheme="blue"
+                    size="lg"
+                    width="100%"
+                    _active={{
+                      transform: 'scale(0.95)',
+                      transition: 'transform 0.1s'
+                    }}
+                  >
+                    出勤
+                  </Button>
+                )}
+
+                {status === 'WORKING' && (
+                  <>
+                    <Button 
+                      type="submit" 
+                      name="type" 
+                      value="END_WORK"
+                      colorScheme="red"
+                      size="lg"
+                      width="100%"
+                      _active={{
+                        transform: 'scale(0.95)',
+                        transition: 'transform 0.1s'
+                      }}
+                    >
+                      退勤
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      name="type" 
+                      value="START_BREAK"
+                      colorScheme="orange"
+                      size="lg"
+                      width="100%"
+                      _active={{
+                        transform: 'scale(0.95)',
+                        transition: 'transform 0.1s'
+                      }}
+                    >
+                      休憩開始
+                    </Button>
+                  </>
+                )}
+
+                {status === 'ON_BREAK' && (
+                  <Button 
+                    type="submit" 
+                    name="type" 
+                    value="END_BREAK"
+                    colorScheme="green"
+                    size="lg"
+                    width="100%"
+                    _active={{
+                      transform: 'scale(0.95)',
+                      transition: 'transform 0.1s'
+                    }}
+                  >
+                    休憩終了
+                  </Button>
+                )}
+              </VStack>
+            </Form>
+
+            <HStack spacing={4} mt={4} width="100%">
+              <Link to="/records" style={{ width: '50%' }}>
                 <Button 
-                  type="submit" 
-                  name="type" 
-                  value="END_WORK"
-                  colorScheme="red"
+                  colorScheme="blue" 
+                  width="100%"
+                  _active={{
+                    transform: 'scale(0.95)',
+                    transition: 'transform 0.1s'
+                  }}
                 >
-                  退勤
+                  記録一覧を見る
                 </Button>
+              </Link>
+              <Link to="/modify" style={{ width: '50%' }}>
                 <Button 
-                  type="submit" 
-                  name="type" 
-                  value="START_BREAK"
-                  colorScheme="orange"
+                  colorScheme="teal" 
+                  width="100%"
+                  _active={{
+                    transform: 'scale(0.95)',
+                    transition: 'transform 0.1s'
+                  }}
                 >
-                  休憩開始
+                  打刻修正
                 </Button>
-              </>
-            )}
-
-            {status === 'ON_BREAK' && (
-              <Button 
-                type="submit" 
-                name="type" 
-                value="END_BREAK"
-                colorScheme="green"
-              >
-                休憩終了
-              </Button>
-            )}
-          </HStack>
-        </Form>
-
-        <VStack spacing={2} align="start" mt={4}>
-          <Link to="/records">
-            <Text color="blue.500">記録一覧を見る</Text>
-          </Link>
-          <Link to="/modify">
-            <Text color="blue.500">打刻修正</Text>
-          </Link>
-        </VStack>
+              </Link>
+            </HStack>
+          </VStack>
+        </Box>
       </VStack>
     </Container>
   );
