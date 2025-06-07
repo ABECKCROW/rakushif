@@ -25,9 +25,15 @@ const statusText = {
 };
 
 export const loader: LoaderFunction = async () => {
+  // ユーザー情報を取得 (現在は固定のユーザーID=1を使用)
+  const userId = 1;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
   // 最新の記録を取得
   const latestRecord = await prisma.record.findFirst({
-    where: { userId: 1 },
+    where: { userId },
     orderBy: { timestamp: 'desc' },
   });
 
@@ -51,7 +57,7 @@ export const loader: LoaderFunction = async () => {
     }
   }
 
-  return { status };
+  return { status, user };
 };
 
 // リアルタイムクロックコンポーネント
@@ -97,7 +103,7 @@ function RealtimeClock() {
 }
 
 export default function Index() {
-  const { status } = useLoaderData<{ status: Status }>();
+  const { status, user } = useLoaderData<{ status: Status, user: { id: number, name: string, email: string } | null }>();
 
   return (
     <Container maxW="container.md" py={8}>
@@ -193,9 +199,12 @@ export async function action({ request }: ActionFunctionArgs) {
     return new Response("Invalid type", { status: 400 });
   }
 
+  // 現在は固定のユーザーID=1を使用
+  const userId = 1;
+
   await prisma.record.create({
     data: {
-      userId: 1, // 仮ユーザーID
+      userId,
       type: type as string,
     },
   });
