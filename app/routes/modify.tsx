@@ -132,7 +132,10 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Combine date and time to create a timestamp
-  const timestamp = new Date(`${date}T${time}:00`);
+  // Explicitly create a date in local time (JST)
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  const timestamp = new Date(year, month - 1, day, hours, minutes, 0);
 
   // Create a new record with the isModified flag set to true
   await prisma.record.create({
