@@ -1,16 +1,5 @@
-import { Link, useLoaderData, useSearchParams, useFetcher } from "@remix-run/react";
-import { ActionFunctionArgs, json } from "@remix-run/node";
-import { useEffect } from "react";
-import prisma from '~/.server/db/client';
-import { useDateRange } from "~/hooks/useDateRange";
-import {
-  calculateDailyData,
-  getDateRangeString,
-  groupRecordsByDate,
-} from "~/utils/recordUtils";
 import {
   Box,
-  Button,
   Container,
   Flex,
   FormControl,
@@ -18,14 +7,21 @@ import {
   Heading,
   Input,
   Table,
-  Thead,
   Tbody,
-  Tr,
-  Th,
   Td,
-  VStack,
+  Th,
+  Thead,
+  Tr,
   useToast,
+  VStack,
 } from '@chakra-ui/react';
+import { ActionFunctionArgs, json } from "@remix-run/node";
+import { useFetcher, useLoaderData, useSearchParams } from "@remix-run/react";
+import { useEffect } from "react";
+import prisma from '~/.server/db/client';
+import { ActionButton, FormButton, Header, HomeButton } from '~/components';
+import { useDateRange } from "~/hooks/useDateRange";
+import { calculateDailyData, getDateRangeString, groupRecordsByDate } from "~/utils/recordUtils";
 
 export const loader = async ({ request }) => {
   const userId = 1; // 仮ユーザーID
@@ -110,7 +106,7 @@ export const RecordsPage = () => {
         status: "success",
         duration: 3000,
         isClosable: true,
-        position: "top"
+        position: "top",
       });
     }
 
@@ -128,7 +124,7 @@ export const RecordsPage = () => {
     const timeoutIds = [
       setTimeout(blurActiveElement, 100),
       setTimeout(blurActiveElement, 300),
-      setTimeout(blurActiveElement, 500)
+      setTimeout(blurActiveElement, 500),
     ];
 
     return () => {
@@ -141,19 +137,7 @@ export const RecordsPage = () => {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-          <Box
-            bg="blue.500"
-            color="white"
-            p={4}
-            borderRadius="md"
-            width="100%"
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            <Heading as="h1" size="xl">勤怠記録</Heading>
-        </Box>
-
+        <Header title="勤怠記録" />
         <Box>
           <Heading as="h2" size="lg" mb={4}>期間選択</Heading>
           <Box
@@ -162,8 +146,8 @@ export const RecordsPage = () => {
             boxShadow="sm"
             bg="white"
           >
-            <fetcher.Form 
-              method="post" 
+            <fetcher.Form
+              method="post"
               onSubmit={(e) => {
                 e.preventDefault(); // Prevent default form submission first
 
@@ -206,50 +190,36 @@ export const RecordsPage = () => {
                   />
                 </FormControl>
 
-                <Button 
-                  type="submit" 
-                  colorScheme="blue" 
+                <FormButton
+                  colorScheme="blue"
                   mt={8}
                   size="lg"
                   h="50px"
                   px={6}
                   fontSize="lg"
-                  _active={{
-                    transform: 'scale(0.95)',
-                    transition: 'transform 0.1s'
-                  }}
                 >
                   更新
-                </Button>
-                <Button
-                  type="button"
+                </FormButton>
+                <ActionButton
                   size="lg"
                   h="50px"
                   px={6}
                   mt={8}
                   fontSize="lg"
-                  _active={{
-                    transform: 'scale(0.95)',
-                    transition: 'transform 0.1s'
+                  showToast={true}
+                  toastOptions={{
+                    title: "CSVをダウンロードしました",
+                    status: "success",
+                    duration: 3000,
+                    isClosable: true,
+                    position: "top",
                   }}
-                  onClick={() => {
-                    // Show toast immediately to ensure it's visible
-                    toast({
-                      title: "CSVをダウンロードしました",
-                      status: "success",
-                      duration: 3000,
-                      isClosable: true,
-                      position: "top"
-                    });
-
-                    // Navigate to the CSV download URL after a short delay to ensure toast is displayed
-                    setTimeout(() => {
-                      window.location.href = getCsvUrl();
-                    }, 500);
+                  actionFn={() => {
+                    window.location.href = getCsvUrl();
                   }}
                 >
                   📥 CSV
-                </Button>
+                </ActionButton>
               </Flex>
             </fetcher.Form>
           </Box>
@@ -261,13 +231,13 @@ export const RecordsPage = () => {
             <Table variant="simple" size="lg">
               <Thead>
                 <Tr bg="red.300">
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>日付</Th>
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>出勤時刻</Th>
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>退勤時刻</Th>
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>労働時間</Th>
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>休憩時間</Th>
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>日給</Th>
-                  <Th color="white" whiteSpace="nowrap"  fontSize="lg" p={4}>備考</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>日付</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>出勤時刻</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>退勤時刻</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>労働時間</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>休憩時間</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>日給</Th>
+                  <Th color="white" whiteSpace="nowrap" fontSize="lg" p={4}>備考</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -278,7 +248,8 @@ export const RecordsPage = () => {
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.endTime}</Td>
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.workHours}</Td>
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.breakTime}</Td>
-                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg"
+                        p={4}>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</Td>
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.notes}</Td>
                   </Tr>
                 ))}
@@ -293,22 +264,10 @@ export const RecordsPage = () => {
           </Box>
         </Box>
       </VStack>
-      <Link to="/">
-        <Button 
-          size="lg" 
-          colorScheme="blue"
-          h="50px"
-          px={6}
-          fontSize="lg"
-          mt={4}
-          _active={{
-            transform: 'scale(0.95)',
-            transition: 'transform 0.1s'
-          }}
-        >
-          ホームに戻る
-        </Button>
-      </Link>
+      <Box width="100%" mt={4}>
+        <HomeButton size="sm" />
+      </Box>
+
     </Container>
   );
 };

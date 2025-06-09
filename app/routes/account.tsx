@@ -1,18 +1,18 @@
 import { LoaderFunction } from "@remix-run/node";
-import { Link, useLoaderData } from '@remix-run/react';
+import { useLoaderData } from '@remix-run/react';
 import prisma from '~/.server/db/client';
-import { 
-  Box, 
-  Button, 
-  Container, 
-  Heading, 
+import {
+  Box,
+  Container,
   Text,
   VStack,
   FormControl,
   FormLabel,
   Input,
-  Divider
+  Divider, Heading,
 } from '@chakra-ui/react';
+import { Header } from '~/components/Header';
+import { HomeButton } from '~/components/HomeButton';
 
 export const loader: LoaderFunction = async () => {
   // ユーザー情報を取得 (現在は固定のユーザーID=1を使用)
@@ -31,30 +31,9 @@ export default function Account() {
     return (
       <Container maxW="container.md" py={8}>
         <VStack spacing={6} align="stretch">
-          <Box 
-            bg="blue.500" 
-            color="white" 
-            p={4} 
-            borderRadius="md" 
-            width="100%" 
-            display="flex" 
-            justifyContent="space-between" 
-            alignItems="center"
-          >
-            <Heading as="h1" size="xl">アカウント情報</Heading>
-            <Link to="/">
-              <Button 
-                size="sm" 
-                colorScheme="whiteAlpha"
-                _active={{
-                  transform: 'scale(0.95)',
-                  transition: 'transform 0.1s'
-                }}
-              >
-                ホームに戻る
-              </Button>
-            </Link>
-          </Box>
+          <Header title="アカウント情報">
+            <HomeButton size="sm" colorScheme="whiteAlpha" />
+          </Header>
           <Text>ユーザー情報が見つかりませんでした。</Text>
         </VStack>
       </Container>
@@ -64,18 +43,7 @@ export default function Account() {
   return (
     <Container maxW="container.md" py={8}>
       <VStack spacing={6} align="stretch">
-        <Box 
-          bg="blue.500" 
-          color="white" 
-          p={4} 
-          borderRadius="md" 
-          width="100%" 
-          display="flex" 
-          justifyContent="space-between" 
-          alignItems="center"
-        >
-          <Heading as="h1" size="xl">アカウント情報</Heading>
-        </Box>
+        <Header title="アカウント情報" />
 
         <Box p={6} borderRadius="lg">
           <VStack spacing={4} align="stretch">
@@ -103,17 +71,7 @@ export default function Account() {
           </VStack>
         </Box>
 
-        <Link to="/">
-          <Button 
-            colorScheme="blue"
-            _active={{
-              transform: 'scale(0.95)',
-              transition: 'transform 0.1s'
-            }}
-          >
-            ホームに戻る
-          </Button>
-        </Link>
+        <HomeButton />
       </VStack>
     </Container>
   );

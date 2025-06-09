@@ -1,18 +1,21 @@
 import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useFetcher } from '@remix-run/react';
+import { useLoaderData, useFetcher } from '@remix-run/react';
 import { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
 import { 
   Box, 
-  Button, 
-  Container, 
-  Heading, 
+  Container,
   HStack, 
   Text, 
   VStack,
   Badge,
   useToast
 } from '@chakra-ui/react';
+import { 
+  Header, 
+  LinkButton,
+  AttendanceButton,
+} from '~/components';
 
 // ステータスの種類
 type Status = 'WORKING' | 'ON_BREAK' | 'NOT_WORKING';
@@ -249,28 +252,19 @@ export default function Index() {
   return (
     <Container maxW="container.md" py={8}>
       <VStack spacing={6} align="stretch">
-        <Box 
-          bg="blue.500" 
-          color="white" 
-          p={4} 
-          borderRadius="md" 
-          width="100%" 
-          display="flex" 
-          justifyContent="space-between" 
-          alignItems="center"
-        >
-          <Heading as="h1" size="xl">出退勤打刻</Heading>
+        <Header title="出退勤打刻">
           {user && (
             <HStack spacing={2}>
-              <Link to="/account">
-                <Button size="sm" colorScheme="whiteAlpha" _active={{
-                  transform: 'scale(0.95)',
-                  transition: 'transform 0.1s',
-                }}>{user.name}</Button>
-              </Link>
+              <LinkButton 
+                to="/account" 
+                size="sm" 
+                colorScheme="whiteAlpha"
+              >
+                {user.name}
+              </LinkButton>
             </HStack>
           )}
-        </Box>
+        </Header>
 
         <Box p={6} borderRadius="lg">
           <VStack spacing={6} align="center">
@@ -306,99 +300,67 @@ export default function Index() {
             <fetcher.Form method="post" width="100%">
               <VStack spacing={4} width="100%">
                 {status === 'NOT_WORKING' && (
-                  <Button 
-                    type="submit" 
+                  <AttendanceButton 
                     name="type" 
                     value="START_WORK"
                     colorScheme="blue"
-                    size="lg"
-                    width="100%"
-                    _active={{
-                      transform: 'scale(0.95)',
-                      transition: 'transform 0.1s'
-                    }}
                   >
                     出勤
-                  </Button>
+                  </AttendanceButton>
                 )}
 
                 {status === 'WORKING' && (
                   <>
-                    <Button 
-                      type="submit" 
+                    <AttendanceButton 
                       name="type" 
                       value="END_WORK"
                       colorScheme="red"
-                      size="lg"
-                      width="100%"
-                      _active={{
-                        transform: 'scale(0.95)',
-                        transition: 'transform 0.1s'
-                      }}
                     >
                       退勤
-                    </Button>
-                    <Button 
-                      type="submit" 
+                    </AttendanceButton>
+                    <AttendanceButton 
                       name="type" 
                       value="START_BREAK"
                       colorScheme="orange"
-                      size="lg"
-                      width="100%"
-                      _active={{
-                        transform: 'scale(0.95)',
-                        transition: 'transform 0.1s'
-                      }}
                     >
                       休憩開始
-                    </Button>
+                    </AttendanceButton>
                   </>
                 )}
 
                 {status === 'ON_BREAK' && (
-                  <Button 
-                    type="submit" 
+                  <AttendanceButton 
                     name="type" 
                     value="END_BREAK"
                     colorScheme="green"
-                    size="lg"
-                    width="100%"
-                    _active={{
-                      transform: 'scale(0.95)',
-                      transition: 'transform 0.1s'
-                    }}
                   >
                     休憩終了
-                  </Button>
+                  </AttendanceButton>
                 )}
               </VStack>
             </fetcher.Form>
 
-            <HStack spacing={4} mt={4} width="100%">
-              <Link to="/records" style={{ width: '50%' }}>
-                <Button 
-                  colorScheme="blue" 
-                  width="100%"
-                  _active={{
-                    transform: 'scale(0.95)',
-                    transition: 'transform 0.1s'
-                  }}
-                >
-                  記録一覧を見る
-                </Button>
-              </Link>
-              <Link to="/modify" style={{ width: '50%' }}>
-                <Button 
-                  colorScheme="teal" 
-                  width="100%"
-                  _active={{
-                    transform: 'scale(0.95)',
-                    transition: 'transform 0.1s'
-                  }}
-                >
-                  打刻修正
-                </Button>
-              </Link>
+            <HStack justifyContent="center" spacing={4} mt={4} width="100%">
+              <LinkButton 
+                to="/records" 
+                colorScheme="blue" 
+                flex={1}
+                minWidth="150px"
+                fontSize="md"
+                whiteSpace="nowrap"
+              >
+                記録一覧を見る
+              </LinkButton>
+              <LinkButton 
+                to="/modify" 
+                colorScheme="teal" 
+                flex={1}
+                minWidth="150px"
+                fontSize="md"
+                whiteSpace="nowrap"
+              >
+                打刻修正
+              </LinkButton>
             </HStack>
           </VStack>
         </Box>

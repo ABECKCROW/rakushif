@@ -83,6 +83,7 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
     const workPairs: { start: Date; end: Date }[] = [];
     const breakPairs: { start: Date; end: Date }[] = [];
     const startWorkRecords: { time: Date; paired: boolean }[] = []; // 出勤記録を保存する配列
+    const endWorkRecords: { time: Date; paired: boolean }[] = []; // 退勤記録を保存する配列
     let currentBreakPair: { start: Date; end: Date | null } | null = null;
     let notes: string[] = [];
 
@@ -114,10 +115,16 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
         // 出勤記録を配列に追加
         startWorkRecords.push({ time: time, paired: false });
       } else if (record.type === "END_WORK") {
+        // 退勤記録を配列に追加
+        endWorkRecords.push({ time: time, paired: false });
+
         // 最も古い未ペアの出勤記録を探す
         const unpaired = startWorkRecords.filter(r => !r.paired)[0];
         if (unpaired) {
           unpaired.paired = true;
+          // 対応する退勤記録もペア済みとしてマーク
+          const thisEndRecord = endWorkRecords[endWorkRecords.length - 1];
+          thisEndRecord.paired = true;
           workPairs.push({ start: unpaired.time, end: time });
         } else {
           // 出勤なしで退勤がある場合
@@ -231,6 +238,14 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
       if (isToday) {
         endTimeDisplay = "勤務中";
       }
+    }
+
+    // 未ペアの退勤記録がある場合は、最も新しい退勤時刻を使用
+    const unpairedEndWork = endWorkRecords.filter(r => !r.paired);
+    if (unpairedEndWork.length > 0) {
+      endWorkTime = unpairedEndWork.reduce((latest, record) => 
+        record.time.getTime() > latest.getTime() ? record.time : latest, 
+        unpairedEndWork[0].time);
     }
 
     // 日給の計算（MINUTE_UNITで指定された分数単位で切り捨て）

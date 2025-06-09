@@ -1,19 +1,9 @@
-import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
-import { Form, useLoaderData, Link, useFetcher } from "@remix-run/react";
-import { useState, useEffect } from "react";
+import { Box, Container, FormControl, FormLabel, Input, Select, useToast, VStack } from '@chakra-ui/react';
+import { ActionFunctionArgs, json, LoaderFunction } from "@remix-run/node";
+import { useFetcher, useLoaderData } from "@remix-run/react";
+import { useEffect, useState } from "react";
 import prisma from "~/.server/db/client";
-import {
-  Box,
-  Button,
-  Container,
-  FormControl,
-  FormLabel,
-  Heading,
-  Input,
-  Select,
-  VStack,
-  useToast,
-} from '@chakra-ui/react';
+import { FormButton, Header, HomeButton } from '~/components';
 
 // Define the type for the form data
 type RecordFormData = {
@@ -56,7 +46,7 @@ export default function ModifyRecord() {
         status: "success",
         duration: 3000,
         isClosable: true,
-        position: "top"
+        position: "top",
       });
 
       // Reset form after submission
@@ -79,30 +69,7 @@ export default function ModifyRecord() {
   return (
     <Container maxW="container.md" py={8}>
       <VStack spacing={6} align="stretch">
-        <Box 
-          bg="blue.500" 
-          color="white" 
-          p={4} 
-          borderRadius="md" 
-          width="100%" 
-          display="flex" 
-          justifyContent="space-between" 
-          alignItems="center"
-        >
-          <Heading as="h1" size="xl">打刻修正</Heading>
-          <Link to="/">
-            <Button 
-              size="sm" 
-              colorScheme="whiteAlpha"
-              _active={{
-                transform: 'scale(0.95)',
-                transition: 'transform 0.1s'
-              }}
-            >
-              ホームに戻る
-            </Button>
-          </Link>
-        </Box>
+        <Header title="打刻修正" />
 
         <Box p={6} borderRadius="lg">
           <fetcher.Form method="post">
@@ -152,24 +119,24 @@ export default function ModifyRecord() {
                 </Select>
               </FormControl>
 
-              <Button
-                type="submit"
+              <FormButton
                 colorScheme="blue"
                 mt={4}
                 width="100%"
                 maxW="300px"
                 isDisabled={!isFormValid}
-                _active={{
-                  transform: 'scale(0.95)',
-                  transition: 'transform 0.1s'
-                }}
               >
                 打刻修正
-              </Button>
+              </FormButton>
             </VStack>
           </fetcher.Form>
+
         </Box>
+
       </VStack>
+      <Box justify-content="center" width="100%" mt={4}>
+        <HomeButton size="sm" />
+      </Box>
     </Container>
   );
 }
@@ -217,10 +184,10 @@ export async function action({ request }: ActionFunctionArgs) {
   });
 
   // Return the form data in the response for the fetcher
-  return json({ 
+  return json({
     success: true,
     date,
     time,
-    type
+    type,
   });
 }
