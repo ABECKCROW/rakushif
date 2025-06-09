@@ -1,5 +1,5 @@
-import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
-import { Form, Link, useLoaderData } from '@remix-run/react';
+import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
+import { Link, useLoaderData, useFetcher } from '@remix-run/react';
 import { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
 import { 
@@ -208,8 +208,43 @@ export default function Index() {
     todayRecords: any[]
   }>();
 
-  // Initialize toast
+  // Initialize toast and fetcher
   const toast = useToast();
+  const fetcher = useFetcher();
+
+  // Show toast when fetcher submission is successful
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      const type = fetcher.data.type;
+
+      // Show toast with random encouraging message based on action type
+      let title = "";
+      switch(type) {
+        case "START_WORK":
+          title = getRandomMessage(startWorkMessages);
+          break;
+        case "END_WORK":
+          title = getRandomMessage(endWorkMessages);
+          break;
+        case "START_BREAK":
+          title = getRandomMessage(startBreakMessages);
+          break;
+        case "END_BREAK":
+          title = getRandomMessage(endBreakMessages);
+          break;
+      }
+
+      if (title) {
+        toast({
+          title: title,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          position: "top"
+        });
+      }
+    }
+  }, [fetcher.state, fetcher.data, toast]);
 
   return (
     <Container maxW="container.md" py={8}>
@@ -268,38 +303,7 @@ export default function Index() {
 
             <TodayRecords records={todayRecords} />
 
-            <Form method="post" width="100%" onSubmit={(e) => {
-              // Get the button value and store form reference
-              const form = e.currentTarget;
-              const formData = new FormData(form);
-              const type = formData.get("type") as string;
-
-              // Show toast with random encouraging message based on action type
-              let title = "";
-              switch(type) {
-                case "START_WORK":
-                  title = getRandomMessage(startWorkMessages);
-                  break;
-                case "END_WORK":
-                  title = getRandomMessage(endWorkMessages);
-                  break;
-                case "START_BREAK":
-                  title = getRandomMessage(startBreakMessages);
-                  break;
-                case "END_BREAK":
-                  title = getRandomMessage(endBreakMessages);
-                  break;
-              }
-
-              toast({
-                title: title,
-                status: "success",
-                duration: 3000,
-                isClosable: true,
-                position: "top"
-              });
-
-            }}>
+            <fetcher.Form method="post" width="100%">
               <VStack spacing={4} width="100%">
                 {status === 'NOT_WORKING' && (
                   <Button 
@@ -368,7 +372,7 @@ export default function Index() {
                   </Button>
                 )}
               </VStack>
-            </Form>
+            </fetcher.Form>
 
             <HStack spacing={4} mt={4} width="100%">
               <Link to="/records" style={{ width: '50%' }}>
@@ -426,5 +430,6 @@ export async function action({ request }: ActionFunctionArgs) {
     },
   });
 
-  return redirect("/");
+  // Return the type in the response data for the fetcher
+  return json({ type });
 }

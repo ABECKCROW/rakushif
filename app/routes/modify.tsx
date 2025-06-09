@@ -1,6 +1,6 @@
 import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
-import { Form, useLoaderData, Link } from "@remix-run/react";
-import { useState } from "react";
+import { Form, useLoaderData, Link, useFetcher } from "@remix-run/react";
+import { useState, useEffect } from "react";
 import prisma from "~/.server/db/client";
 import {
   Box,
@@ -37,8 +37,36 @@ export default function ModifyRecord() {
     type: "", // No default value
   });
 
-  // Initialize toast
+  // Initialize toast and fetcher
   const toast = useToast();
+  const fetcher = useFetcher();
+
+  // Show toast when fetcher submission is successful
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data && fetcher.data.success) {
+      // Get the translated type for display
+      const typeText = translateType(fetcher.data.type);
+      // Format the date for display
+      const dateObj = new Date(fetcher.data.date);
+      const formattedDate = `${dateObj.getFullYear()}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}`;
+
+      toast({
+        title: "打刻修正を記録しました",
+        description: `${formattedDate} ${fetcher.data.time} - ${typeText}`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+
+      // Reset form after submission
+      setFormData({
+        date: "",
+        time: "",
+        type: "",
+      });
+    }
+  }, [fetcher.state, fetcher.data, toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -77,31 +105,7 @@ export default function ModifyRecord() {
         </Box>
 
         <Box p={6} borderRadius="lg">
-          <Form method="post" onSubmit={() => {
-            // Get the translated type for display
-            const typeText = translateType(formData.type);
-            // Format the date for display
-            const dateObj = new Date(formData.date);
-            const formattedDate = `${dateObj.getFullYear()}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}`;
-
-            toast({
-              title: "打刻修正を記録しました",
-              description: `${formattedDate} ${formData.time} - ${typeText}`,
-              status: "success",
-              duration: 3000,
-              isClosable: true,
-              position: "top"
-            });
-
-            // Reset form after submission
-            setTimeout(() => {
-              setFormData({
-                date: "",
-                time: "",
-                type: "",
-              });
-            }, 100);
-          }}>
+          <fetcher.Form method="post">
             <VStack spacing={4} align="stretch">
               <FormControl isRequired>
                 <FormLabel htmlFor="date">日付:</FormLabel>
@@ -163,7 +167,7 @@ export default function ModifyRecord() {
                 打刻修正
               </Button>
             </VStack>
-          </Form>
+          </fetcher.Form>
         </Box>
       </VStack>
     </Container>
@@ -212,5 +216,11 @@ export async function action({ request }: ActionFunctionArgs) {
     },
   });
 
-  return json({ success: true });
+  // Return the form data in the response for the fetcher
+  return json({ 
+    success: true,
+    date,
+    time,
+    type
+  });
 }

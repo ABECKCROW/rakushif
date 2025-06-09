@@ -1,4 +1,5 @@
-import { Link, useLoaderData, useSearchParams } from "@remix-run/react";
+import { Link, useLoaderData, useSearchParams, useFetcher } from "@remix-run/react";
+import { ActionFunctionArgs, json } from "@remix-run/node";
 import { useEffect } from "react";
 import prisma from '~/.server/db/client';
 import { useDateRange } from "~/hooks/useDateRange";
@@ -6,7 +7,6 @@ import {
   calculateDailyData,
   getDateRangeString,
   groupRecordsByDate,
-  HOURLY_RATE,
 } from "~/utils/recordUtils";
 import {
   Box,
@@ -17,14 +17,12 @@ import {
   FormLabel,
   Heading,
   Input,
-  Link as ChakraLink,
   Table,
   Thead,
   Tbody,
   Tr,
   Th,
   Td,
-  Text,
   VStack,
   useToast,
 } from '@chakra-ui/react';
@@ -98,10 +96,13 @@ export const RecordsPage = () => {
     getCsvUrl,
   } = useDateRange(data.from, data.to);
 
-  // Initialize toast
+  // Initialize toast and fetcher
   const toast = useToast();
+  const fetcher = useFetcher();
 
-  // Show toast after page load if showToast parameter is present
+  // We're now showing toasts directly in the click handlers, so we don't need this effect anymore
+
+  // Legacy toast for URL parameter (can be removed once all links are updated)
   useEffect(() => {
     if (searchParams.get("showToast") === "true") {
       toast({
@@ -155,95 +156,102 @@ export const RecordsPage = () => {
 
         <Box>
           <Heading as="h2" size="lg" mb={4}>期間選択</Heading>
-          <Box 
-            as="form" 
-            method="get" 
-            action="/records" 
+          <Box
             p={4}
             borderRadius="lg"
             boxShadow="sm"
             bg="white"
-            onSubmit={(e) => {
-            e.preventDefault(); // Prevent default form submission
+          >
+            <fetcher.Form 
+              method="post" 
+              onSubmit={(e) => {
+                e.preventDefault(); // Prevent default form submission first
 
-            // Get form data
-            const formData = new FormData(e.currentTarget);
-            const from = formData.get("from");
-            const to = formData.get("to");
+                // Get the form values for navigation
+                const formData = new FormData(e.currentTarget);
+                const from = formData.get("from") as string;
+                const to = formData.get("to") as string;
 
-            // Navigate to the new URL with a showToast parameter
-            window.location.href = `/records?from=${from}&to=${to}&showToast=true`;
-          }}>
-            <Flex gap={6} alignItems="center" flexWrap="wrap" py={4}>
-              <FormControl w="auto">
-                <FormLabel htmlFor="from" fontSize="lg">開始日:</FormLabel>
-                <Input
-                  id="from"
-                  type="date"
-                  name="from"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  whiteSpace="nowrap"
+                // Navigate to the new URL with a showToast parameter
+                window.location.href = `/records?from=${from}&to=${to}&showToast=true`;
+              }}
+            >
+              <Flex gap={6} alignItems="center" flexWrap="wrap" py={4}>
+                <FormControl w="auto">
+                  <FormLabel htmlFor="from" fontSize="lg">開始日:</FormLabel>
+                  <Input
+                    id="from"
+                    type="date"
+                    name="from"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    whiteSpace="nowrap"
+                    size="lg"
+                    h="50px"
+                    fontSize="lg"
+                  />
+                </FormControl>
+                <FormControl w="auto">
+                  <FormLabel htmlFor="to" fontSize="lg">終了日:</FormLabel>
+                  <Input
+                    id="to"
+                    type="date"
+                    name="to"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    whiteSpace="nowrap"
+                    size="lg"
+                    h="50px"
+                    fontSize="lg"
+                  />
+                </FormControl>
+
+                <Button 
+                  type="submit" 
+                  colorScheme="blue" 
+                  mt={8}
                   size="lg"
                   h="50px"
+                  px={6}
                   fontSize="lg"
-                />
-              </FormControl>
-              <FormControl w="auto">
-                <FormLabel htmlFor="to" fontSize="lg">終了日:</FormLabel>
-                <Input
-                  id="to"
-                  type="date"
-                  name="to"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  whiteSpace="nowrap"
+                  _active={{
+                    transform: 'scale(0.95)',
+                    transition: 'transform 0.1s'
+                  }}
+                >
+                  更新
+                </Button>
+                <Button
+                  type="button"
                   size="lg"
                   h="50px"
+                  px={6}
+                  mt={8}
                   fontSize="lg"
-                />
-              </FormControl>
+                  _active={{
+                    transform: 'scale(0.95)',
+                    transition: 'transform 0.1s'
+                  }}
+                  onClick={() => {
+                    // Show toast immediately to ensure it's visible
+                    toast({
+                      title: "CSVをダウンロードしました",
+                      status: "success",
+                      duration: 3000,
+                      isClosable: true,
+                      position: "top"
+                    });
 
-              <Button 
-                type="submit" 
-                colorScheme="blue" 
-                mt={8}
-                size="lg"
-                h="50px"
-                px={6}
-                fontSize="lg"
-                _active={{
-                  transform: 'scale(0.95)',
-                  transition: 'transform 0.1s'
-                }}
-              >
-                更新
-              </Button>
-              <Button
-                size="lg"
-                h="50px"
-                px={6}
-                mt={8}
-                fontSize="lg"
-                _active={{
-                  transform: 'scale(0.95)',
-                  transition: 'transform 0.1s'
-                }}
-                onClick={() => {
-                  toast({
-                    title: "CSVをダウンロードしました",
-                    status: "success",
-                    duration: 3000,
-                    isClosable: true,
-                    position: "top"
-                  });
-                }}
-              >
-                <ChakraLink as={Link} to={getCsvUrl()} reloadDocument color="blue.500">
+                    // Navigate to the CSV download URL after a short delay to ensure toast is displayed
+                    setTimeout(() => {
+                      window.location.href = getCsvUrl();
+                    }, 500);
+                  }}
+                >
                   📥 CSV
-                </ChakraLink>
-              </Button>
-            </Flex>
+                </Button>
+              </Flex>
+            </fetcher.Form>
           </Box>
         </Box>
 
@@ -305,5 +313,23 @@ export const RecordsPage = () => {
   );
 };
 
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const formData = await request.formData();
+  const action = formData.get("action") as string;
+
+  if (action === "update") {
+    const from = formData.get("from") as string;
+    const to = formData.get("to") as string;
+
+    // Redirect to the same page with the new date range
+    return json({ action, from, to });
+  } else if (action === "csv") {
+    // Return success for CSV download
+    return json({ action });
+  }
+
+  return json({ error: "Invalid action" }, { status: 400 });
+};
 
 export default RecordsPage;
