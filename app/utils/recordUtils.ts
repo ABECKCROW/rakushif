@@ -61,6 +61,9 @@ export interface DailyData {
   breakTime: string;
   dailyWage: number;
   notes: string;
+  isStartTimeModified: boolean;
+  isEndTimeModified: boolean;
+  isBreakTimeModified: boolean;
 }
 
 // 日ごとのデータを計算する関数
@@ -82,10 +85,15 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
     // 出勤・退勤・休憩時間を抽出
     const workPairs: { start: Date; end: Date }[] = [];
     const breakPairs: { start: Date; end: Date }[] = [];
-    const startWorkRecords: { time: Date; paired: boolean }[] = []; // 出勤記録を保存する配列
-    const endWorkRecords: { time: Date; paired: boolean }[] = []; // 退勤記録を保存する配列
-    let currentBreakPair: { start: Date; end: Date | null } | null = null;
+    const startWorkRecords: { time: Date; paired: boolean; isModified: boolean }[] = []; // 出勤記録を保存する配列
+    const endWorkRecords: { time: Date; paired: boolean; isModified: boolean }[] = []; // 退勤記録を保存する配列
+    let currentBreakPair: { start: Date; end: Date | null; startModified: boolean; endModified: boolean } | null = null;
     let notes: string[] = [];
+
+    // 修正フラグ
+    let isStartTimeModified = false;
+    let isEndTimeModified = false;
+    let isBreakTimeModified = false;
 
     // 出勤・退勤・休憩時間のペアを抽出
     let unpairedEndWorkCount = 0;
@@ -113,10 +121,18 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
 
       if (record.type === "START_WORK") {
         // 出勤記録を配列に追加
-        startWorkRecords.push({ time: time, paired: false });
+        startWorkRecords.push({ time: time, paired: false, isModified: record.isModified || false });
+        // 修正されたレコードがあれば、フラグを立てる
+        if (record.isModified) {
+          isStartTimeModified = true;
+        }
       } else if (record.type === "END_WORK") {
         // 退勤記録を配列に追加
-        endWorkRecords.push({ time: time, paired: false });
+        endWorkRecords.push({ time: time, paired: false, isModified: record.isModified || false });
+        // 修正されたレコードがあれば、フラグを立てる
+        if (record.isModified) {
+          isEndTimeModified = true;
+        }
 
         // 最も古い未ペアの出勤記録を探す
         const unpaired = startWorkRecords.filter(r => !r.paired)[0];
@@ -135,15 +151,28 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
           // 前の休憩開始に対する休憩終了がない場合
           unpairedStartBreakCount++;
         }
-        currentBreakPair = { start: time, end: null };
+        currentBreakPair = { start: time, end: null, startModified: record.isModified || false, endModified: false };
+        // 修正されたレコードがあれば、フラグを立てる
+        if (record.isModified) {
+          isBreakTimeModified = true;
+        }
       } else if (record.type === "END_BREAK") {
         if (currentBreakPair) {
           currentBreakPair.end = time;
+          currentBreakPair.endModified = record.isModified || false;
           breakPairs.push({ start: currentBreakPair.start, end: time });
+          // 修正されたレコードがあれば、フラグを立てる
+          if (record.isModified) {
+            isBreakTimeModified = true;
+          }
           currentBreakPair = null;
         } else {
           // 休憩開始なしで休憩終了がある場合
           unpairedEndBreakCount++;
+          // 修正されたレコードがあれば、フラグを立てる
+          if (record.isModified) {
+            isBreakTimeModified = true;
+          }
         }
       }
     }
@@ -261,6 +290,9 @@ export const calculateDailyData = (recordsByDate: { [key: string]: Record[] }): 
       breakTime: formatDuration(breakMinutes),
       dailyWage: dailyWage,
       notes: notes.join(", "),
+      isStartTimeModified: isStartTimeModified,
+      isEndTimeModified: isEndTimeModified,
+      isBreakTimeModified: isBreakTimeModified,
     });
   }
 

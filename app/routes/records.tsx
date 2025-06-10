@@ -245,10 +245,10 @@ export const RecordsPage = () => {
                 {data.dailyData.map((day, index) => (
                   <Tr key={index}>
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.dateStr}</Td>
-                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.startTime}</Td>
-                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.endTime}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4} color={day.isStartTimeModified ? "red.500" : "inherit"}>{day.startTime}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4} color={day.isEndTimeModified ? "red.500" : "inherit"}>{day.endTime}</Td>
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.workHours}</Td>
-                    <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.breakTime}</Td>
+                    <Td whiteSpace="nowrap" fontSize="lg" p={4} color={day.isBreakTimeModified ? "red.500" : "inherit"}>{day.breakTime}</Td>
                     <Td whiteSpace="nowrap" fontSize="lg"
                         p={4}>{day.dailyWage ? `${day.dailyWage.toLocaleString()}円` : ""}</Td>
                     <Td whiteSpace="nowrap" fontSize="lg" p={4}>{day.notes}</Td>
