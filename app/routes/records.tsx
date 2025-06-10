@@ -23,16 +23,18 @@ import { ActionButton, FormButton, Header, HomeButton, DateSelector } from '~/co
 import { useDateRange } from "~/hooks/useDateRange";
 import { calculateDailyData, getDateRangeString, groupRecordsByDate } from "~/utils/recordUtils";
 
-export const loader = async ({ request }) => {
+export const loader = async ({ request }: { request: Request }) => {
   const userId = 1; // 仮ユーザーID
 
   // URLからクエリパラメータを取得
   const url = new URL(request.url);
   let from, to;
 
-  if (url.searchParams.has("from") && url.searchParams.has("to")) {
-    from = new Date(url.searchParams.get("from"));
-    to = new Date(url.searchParams.get("to"));
+  const fromParam = url.searchParams.get("from");
+  const toParam = url.searchParams.get("to");
+  if (fromParam && toParam) {
+    from = new Date(fromParam);
+    to = new Date(toParam);
 
     // 終了日の時間を23:59:59に設定して、その日全体を含める
     to.setHours(23, 59, 59, 999);
@@ -162,8 +164,14 @@ export const RecordsPage = () => {
 
                 // Get the form values for navigation
                 const formData = new FormData(e.currentTarget);
-                const from = formData.get("from") as string;
-                const to = formData.get("to") as string;
+                const from = formData.get("from");
+                const to = formData.get("to");
+
+                // Validate that from and to are strings
+                if (typeof from !== "string" || typeof to !== "string") {
+                  console.error("Form values are not valid strings");
+                  return;
+                }
 
                 // Navigate to the new URL with a showToast parameter
                 window.location.href = `/records?from=${from}&to=${to}&showToast=true`;
@@ -296,17 +304,27 @@ export const RecordsPage = () => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
-  const action = formData.get("action") as string;
+  const actionValue = formData.get("action");
 
-  if (action === "update") {
-    const from = formData.get("from") as string;
-    const to = formData.get("to") as string;
+  // Validate that action is a string
+  if (typeof actionValue !== "string") {
+    return json({ error: "Action is required" }, { status: 400 });
+  }
+
+  if (actionValue === "update") {
+    const from = formData.get("from");
+    const to = formData.get("to");
+
+    // Validate that from and to are strings
+    if (typeof from !== "string" || typeof to !== "string") {
+      return json({ error: "From and to dates are required" }, { status: 400 });
+    }
 
     // Redirect to the same page with the new date range
-    return json({ action, from, to });
-  } else if (action === "csv") {
+    return json({ action: actionValue, from, to });
+  } else if (actionValue === "csv") {
     // Return success for CSV download
-    return json({ action });
+    return json({ action: actionValue });
   }
 
   return json({ error: "Invalid action" }, { status: 400 });

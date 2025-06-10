@@ -2,6 +2,14 @@ import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from '@remix-run/react';
 import React, { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
+import { RecordType } from "@prisma/client";
+
+// Define the type for the action response
+type ActionResponse = {
+  type: RecordType;
+  timestamp: string;
+  success?: boolean;
+};
 import { 
   Box, 
   Container,
@@ -144,11 +152,19 @@ function RealtimeClock() {
   );
 }
 
+// Define the TimeRecord type
+type TimeRecord = {
+  id: number;
+  type: RecordType;
+  timestamp: string;
+  isDeleted: boolean;
+}
+
 // 打刻時間を表示するコンポーネント
-function TodayRecords({ records }: { records: any[] }) {
+function TodayRecords({ records }: { records: TimeRecord[] }) {
   const fetcher = useFetcher();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [recordToDelete, setRecordToDelete] = useState<{id: number, type: string, timestamp: string} | null>(null);
+  const [recordToDelete, setRecordToDelete] = useState<{id: number, type: RecordType, timestamp: string} | null>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   if (records.length === 0) {
@@ -156,7 +172,7 @@ function TodayRecords({ records }: { records: any[] }) {
   }
 
   // 記録タイプの日本語表示
-  const recordTypeText = {
+  const recordTypeText: Record<RecordType, string> = {
     START_WORK: '出勤',
     END_WORK: '退勤',
     START_BREAK: '休憩開始',
@@ -186,7 +202,7 @@ function TodayRecords({ records }: { records: any[] }) {
   };
 
   // Handle delete button click
-  const handleDeleteClick = (record: any) => {
+  const handleDeleteClick = (record: TimeRecord) => {
     setRecordToDelete({
       id: record.id,
       type: record.type,
@@ -219,7 +235,7 @@ function TodayRecords({ records }: { records: any[] }) {
               <Box width="20px" textAlign="center">
                 {record.isDeleted && <Text color="red.500" fontWeight="bold">✕</Text>}
               </Box>
-              <Text fontWeight="bold" textAlign="left" width="80px">{recordTypeText[record.type as keyof typeof recordTypeText]}:</Text>
+              <Text fontWeight="bold" textAlign="left" width="80px">{recordTypeText[record.type]}:</Text>
               <Text>{formatTime(record.timestamp)}</Text>
               <Box width="40px" ml={2}>
                 {!record.isDeleted && canDelete && (
@@ -248,7 +264,7 @@ function TodayRecords({ records }: { records: any[] }) {
         <AlertDialogOverlay>
           <AlertDialogContent marginTop="40vh">
             <AlertDialogHeader mt={5} fontSize="lg" fontWeight="bold">
-              {recordToDelete ? `${recordTypeText[recordToDelete.type as keyof typeof recordTypeText]}: ${formatTime(recordToDelete.timestamp)} を削除しますか？` : '記録を削除'}
+              {recordToDelete ? `${recordTypeText[recordToDelete.type]}: ${formatTime(recordToDelete.timestamp)} を削除しますか？` : '記録を削除'}
             </AlertDialogHeader>
 
             <AlertDialogFooter>
@@ -317,7 +333,7 @@ export default function Index() {
 
   // Initialize toast and fetcher
   const toast = useToast();
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<ActionResponse>();
 
   // Show toast when fetcher submission is successful
   useEffect(() => {
@@ -401,49 +417,51 @@ export default function Index() {
 
             <TodayRecords records={todayRecords} />
 
-            <fetcher.Form method="post" width="100%">
-              <input type="hidden" name="action" value="createRecord" />
-              <VStack spacing={4} width="100%">
-                {status === 'NOT_WORKING' && (
-                  <AttendanceButton 
-                    name="type" 
-                    value="START_WORK"
-                    colorScheme="blue"
-                  >
-                    出勤
-                  </AttendanceButton>
-                )}
-
-                {status === 'WORKING' && (
-                  <>
+            <Box width="100%">
+              <fetcher.Form method="post">
+                <input type="hidden" name="action" value="createRecord" />
+                <VStack spacing={4} width="100%">
+                  {status === 'NOT_WORKING' && (
                     <AttendanceButton 
                       name="type" 
-                      value="END_WORK"
-                      colorScheme="red"
+                      value="START_WORK"
+                      colorScheme="blue"
                     >
-                      退勤
+                      出勤
                     </AttendanceButton>
+                  )}
+
+                  {status === 'WORKING' && (
+                    <>
+                      <AttendanceButton 
+                        name="type" 
+                        value="END_WORK"
+                        colorScheme="red"
+                      >
+                        退勤
+                      </AttendanceButton>
+                      <AttendanceButton 
+                        name="type" 
+                        value="START_BREAK"
+                        colorScheme="orange"
+                      >
+                        休憩開始
+                      </AttendanceButton>
+                    </>
+                  )}
+
+                  {status === 'ON_BREAK' && (
                     <AttendanceButton 
                       name="type" 
-                      value="START_BREAK"
-                      colorScheme="orange"
+                      value="END_BREAK"
+                      colorScheme="green"
                     >
-                      休憩開始
+                      休憩終了
                     </AttendanceButton>
-                  </>
-                )}
-
-                {status === 'ON_BREAK' && (
-                  <AttendanceButton 
-                    name="type" 
-                    value="END_BREAK"
-                    colorScheme="green"
-                  >
-                    休憩終了
-                  </AttendanceButton>
-                )}
-              </VStack>
-            </fetcher.Form>
+                  )}
+                </VStack>
+              </fetcher.Form>
+            </Box>
 
             <HStack justifyContent="center" spacing={4} mt={4} width="100%">
               <LinkButton 
@@ -476,17 +494,28 @@ export default function Index() {
 
 export async function action({ request }: ActionFunctionArgs) {
   const form = await request.formData();
-  const action = form.get("action");
+  const actionValue = form.get("action");
+
+  // Validate that action is a string
+  if (typeof actionValue !== "string") {
+    return new Response("Action is required", { status: 400 });
+  }
+
+  const action = actionValue;
 
   // 現在は固定のユーザーID=1を使用
   const userId = 1;
 
   // Handle record deletion
   if (action === "deleteRecord") {
-    const recordId = form.get("recordId");
-    if (!recordId) {
+    const recordIdValue = form.get("recordId");
+
+    // Validate that recordId is a string
+    if (typeof recordIdValue !== "string") {
       return new Response("Record ID is required", { status: 400 });
     }
+
+    const recordId = recordIdValue;
 
     // Get the record to be deleted
     const recordToDelete = await prisma.record.findUnique({
@@ -531,25 +560,34 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Handle record creation
   if (action === "createRecord") {
-    const type = form.get("type");
-    if (
-      type !== "START_WORK" &&
-      type !== "END_WORK" &&
-      type !== "START_BREAK" &&
-      type !== "END_BREAK"
-    ) {
+    const typeValue = form.get("type");
+
+    // Validate that type is a string
+    if (typeof typeValue !== "string") {
+      return new Response("Type is required", { status: 400 });
+    }
+
+    // Validate that type is a valid RecordType
+    const isValidRecordType = (value: string): value is RecordType => {
+      return value === "START_WORK" || 
+             value === "END_WORK" || 
+             value === "START_BREAK" || 
+             value === "END_BREAK";
+    };
+
+    if (!isValidRecordType(typeValue)) {
       return new Response("Invalid type", { status: 400 });
     }
 
     await prisma.record.create({
       data: {
         userId,
-        type: type as string,
+        type: typeValue, // Now typeValue is guaranteed to be RecordType
       },
     });
 
     // Return the type in the response data for the fetcher
-    return json({ type });
+    return json({ type: typeValue });
   }
 
   return new Response("Invalid action", { status: 400 });

@@ -3,7 +3,17 @@ import { ActionFunctionArgs, json, LoaderFunction } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import prisma from "~/.server/db/client";
+import { RecordType } from "@prisma/client";
 import { FormButton, Header, HomeButton, DateSelector, TimeSelector } from '~/components';
+
+// Define the type for the action response
+type ActionResponse = {
+  success: boolean;
+  date: string;
+  time: string;
+  type: string;
+  error?: string;
+};
 
 // Define the type for the form data
 type RecordFormData = {
@@ -17,7 +27,7 @@ type RecordFormData = {
 
 export const loader: LoaderFunction = async () => {
   // Define the record types
-  const recordTypes = ["START_WORK", "END_WORK", "START_BREAK", "END_BREAK"];
+  const recordTypes: RecordType[] = ["START_WORK", "END_WORK", "START_BREAK", "END_BREAK"];
 
   return json({ recordTypes });
 };
@@ -44,7 +54,7 @@ export default function ModifyRecord() {
 
   // Initialize toast and fetcher
   const toast = useToast();
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<ActionResponse>();
 
   // Show toast when fetcher submission is successful
   useEffect(() => {
@@ -137,7 +147,7 @@ export default function ModifyRecord() {
                   maxW="300px"
                   placeholder="選択してください"
                 >
-                  {recordTypes.map((type) => (
+                  {recordTypes.map((type: RecordType) => (
                     <option key={type} value={type}>
                       {translateType(type)}
                     </option>
@@ -168,7 +178,7 @@ export default function ModifyRecord() {
 }
 
 // Helper function to translate record types to Japanese
-function translateType(type: string): string {
+function translateType(type: string | RecordType): string {
   switch (type) {
     case "START_WORK":
       return "出勤";
@@ -179,20 +189,30 @@ function translateType(type: string): string {
     case "END_BREAK":
       return "休憩終了";
     default:
-      return type;
+      // If it's not one of the known types, it must be a string
+      return typeof type === "string" ? type : String(type);
   }
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
-  const year = formData.get("year") as string;
-  const month = formData.get("month") as string;
-  const day = formData.get("day") as string;
-  const hour = formData.get("hour") as string;
-  const minute = formData.get("minute") as string;
-  const type = formData.get("type") as string;
+  const year = formData.get("year");
+  const month = formData.get("month");
+  const day = formData.get("day");
+  const hour = formData.get("hour");
+  const minute = formData.get("minute");
+  const type = formData.get("type");
 
-  if (!year || !month || !day || !hour || !minute || !type) {
+  // Check if all values are strings and not null
+  if (
+    typeof year !== "string" || 
+    typeof month !== "string" || 
+    typeof day !== "string" || 
+    typeof hour !== "string" || 
+    typeof minute !== "string" || 
+    typeof type !== "string" ||
+    !year || !month || !day || !hour || !minute || !type
+  ) {
     return json({ error: "All fields are required" }, { status: 400 });
   }
 
@@ -212,11 +232,23 @@ export async function action({ request }: ActionFunctionArgs) {
     0
   );
 
+  // Validate that type is a valid RecordType
+  const isValidRecordType = (value: string): value is RecordType => {
+    return value === "START_WORK" || 
+           value === "END_WORK" || 
+           value === "START_BREAK" || 
+           value === "END_BREAK";
+  };
+
+  if (!isValidRecordType(type)) {
+    return json({ error: "Invalid record type" }, { status: 400 });
+  }
+
   // Create a new record with the isModified flag set to true
   await prisma.record.create({
     data: {
       userId: 1, // Default user ID
-      type: type as any, // Cast to RecordType
+      type, // Now type is guaranteed to be RecordType
       timestamp,
       isModified: true,
     },
