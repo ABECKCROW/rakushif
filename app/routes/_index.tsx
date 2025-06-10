@@ -1,6 +1,6 @@
 import { ActionFunctionArgs, LoaderFunction, json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from '@remix-run/react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
 import { 
   Box, 
@@ -9,7 +9,15 @@ import {
   Text, 
   VStack,
   Badge,
-  useToast
+  useToast,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  Button,
+  useDisclosure
 } from '@chakra-ui/react';
 import { 
   Header, 
@@ -27,6 +35,10 @@ const statusText = {
   NOT_WORKING: '勤務していません'
 };
 
+// 直前の打刻を消せる時間制限（分）
+// 将来的に変更できるようにするため、定数として定義
+const RECORD_DELETION_TIME_LIMIT_MINUTES = 5;
+
 export const loader: LoaderFunction = async () => {
   // ユーザー情報を取得 (現在は固定のユーザーID=1を使用)
   const userId = 1;
@@ -34,9 +46,12 @@ export const loader: LoaderFunction = async () => {
     where: { id: userId },
   });
 
-  // 最新の記録を取得
+  // 最新の記録を取得 (論理削除されていないもののみ)
   const latestRecord = await prisma.record.findFirst({
-    where: { userId },
+    where: { 
+      userId,
+      isDeleted: false 
+    },
     orderBy: { timestamp: 'desc' },
   });
 
@@ -72,6 +87,7 @@ export const loader: LoaderFunction = async () => {
         gte: startOfDay,
         lte: endOfDay,
       },
+      isDeleted: false,
     },
     orderBy: { timestamp: 'asc' },
   });
@@ -130,6 +146,11 @@ function RealtimeClock() {
 
 // 打刻時間を表示するコンポーネント
 function TodayRecords({ records }: { records: any[] }) {
+  const fetcher = useFetcher();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [recordToDelete, setRecordToDelete] = useState<{id: number, type: string, timestamp: string} | null>(null);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+
   if (records.length === 0) {
     return null;
   }
@@ -150,15 +171,98 @@ function TodayRecords({ records }: { records: any[] }) {
     return `${hours}:${minutes}`;
   };
 
+  // Find the most recent record (non-deleted)
+  const sortedRecords = [...records].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  const latestRecord = sortedRecords.find(record => !record.isDeleted);
+
+  // Check if a record is within the deletion time window
+  const isWithinDeletionWindow = (timestamp: string) => {
+    const now = new Date();
+    const recordTime = new Date(timestamp);
+    const timeDifferenceInMinutes = (now.getTime() - recordTime.getTime()) / (1000 * 60);
+    return timeDifferenceInMinutes <= RECORD_DELETION_TIME_LIMIT_MINUTES;
+  };
+
+  // Handle delete button click
+  const handleDeleteClick = (record: any) => {
+    setRecordToDelete({
+      id: record.id,
+      type: record.type,
+      timestamp: record.timestamp
+    });
+    onOpen();
+  };
+
+  // Handle confirmation dialog confirm
+  const handleDeleteConfirm = () => {
+    if (recordToDelete) {
+      const formData = new FormData();
+      formData.append("action", "deleteRecord");
+      formData.append("recordId", recordToDelete.id.toString());
+      fetcher.submit(formData, { method: "post" });
+    }
+    onClose();
+  };
+
   return (
-    <VStack spacing={1} width="100%" fontSize="xs" mt={2}>
-      {records.map((record, index) => (
-        <HStack key={index} width="100%" justifyContent="center" spacing={4}>
-          <Text fontWeight="bold">{recordTypeText[record.type as keyof typeof recordTypeText]}:</Text>
-          <Text>{formatTime(record.timestamp)}</Text>
-        </HStack>
-      ))}
-    </VStack>
+    <>
+      <VStack spacing={1} width="100%" fontSize="xs" mt={2}>
+        {records.map((record, index) => {
+          // Check if this record is the latest and within the deletion window
+          const isLatest = latestRecord && record.id === latestRecord.id;
+          const canDelete = isLatest && isWithinDeletionWindow(record.timestamp);
+
+          return (
+            <HStack key={index} width="100%" justifyContent="center" spacing={4} position="relative">
+              <Box width="20px" textAlign="center">
+                {record.isDeleted && <Text color="red.500" fontWeight="bold">✕</Text>}
+              </Box>
+              <Text fontWeight="bold" textAlign="left" width="80px">{recordTypeText[record.type as keyof typeof recordTypeText]}:</Text>
+              <Text>{formatTime(record.timestamp)}</Text>
+              <Box width="40px" ml={2}>
+                {!record.isDeleted && canDelete && (
+                  <Text 
+                    color="blue.500"
+                    textDecoration="underline"
+                    cursor="pointer"
+                    onClick={() => handleDeleteClick(record)}
+                    fontSize="0.8em"
+                  >
+                    削除
+                  </Text>
+                )}
+              </Box>
+            </HStack>
+          );
+        })}
+      </VStack>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent marginTop="40vh">
+            <AlertDialogHeader mt={5} fontSize="lg" fontWeight="bold">
+              {recordToDelete ? `${recordTypeText[recordToDelete.type as keyof typeof recordTypeText]}: ${formatTime(recordToDelete.timestamp)} を削除しますか？` : '記録を削除'}
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onClose}>
+                キャンセル
+              </Button>
+              <Button colorScheme="red" onClick={handleDeleteConfirm} ml={3}>
+                削除
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -298,6 +402,7 @@ export default function Index() {
             <TodayRecords records={todayRecords} />
 
             <fetcher.Form method="post" width="100%">
+              <input type="hidden" name="action" value="createRecord" />
               <VStack spacing={4} width="100%">
                 {status === 'NOT_WORKING' && (
                   <AttendanceButton 
@@ -371,27 +476,81 @@ export default function Index() {
 
 export async function action({ request }: ActionFunctionArgs) {
   const form = await request.formData();
-  const type = form.get("type");
-
-  if (
-    type !== "START_WORK" &&
-    type !== "END_WORK" &&
-    type !== "START_BREAK" &&
-    type !== "END_BREAK"
-  ) {
-    return new Response("Invalid type", { status: 400 });
-  }
+  const action = form.get("action");
 
   // 現在は固定のユーザーID=1を使用
   const userId = 1;
 
-  await prisma.record.create({
-    data: {
-      userId,
-      type: type as string,
-    },
-  });
+  // Handle record deletion
+  if (action === "deleteRecord") {
+    const recordId = form.get("recordId");
+    if (!recordId) {
+      return new Response("Record ID is required", { status: 400 });
+    }
 
-  // Return the type in the response data for the fetcher
-  return json({ type });
+    // Get the record to be deleted
+    const recordToDelete = await prisma.record.findUnique({
+      where: { id: Number(recordId) },
+    });
+
+    if (!recordToDelete) {
+      return new Response("Record not found", { status: 404 });
+    }
+
+    // Get the most recent record for the user
+    const latestRecord = await prisma.record.findFirst({
+      where: { 
+        userId,
+        isDeleted: false 
+      },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    // Check if the record to be deleted is the most recent one
+    if (!latestRecord || latestRecord.id !== recordToDelete.id) {
+      return new Response("Only the most recent record can be deleted", { status: 403 });
+    }
+
+    // Check if the record was created within the deletion time window
+    const now = new Date();
+    const recordTime = new Date(recordToDelete.timestamp);
+    const timeDifferenceInMinutes = (now.getTime() - recordTime.getTime()) / (1000 * 60);
+
+    if (timeDifferenceInMinutes > RECORD_DELETION_TIME_LIMIT_MINUTES) {
+      return new Response(`Records can only be deleted within ${RECORD_DELETION_TIME_LIMIT_MINUTES} minutes of creation`, { status: 403 });
+    }
+
+    // If all checks pass, mark the record as deleted
+    await prisma.record.update({
+      where: { id: Number(recordId) },
+      data: { isDeleted: true },
+    });
+
+    return json({ success: true });
+  }
+
+  // Handle record creation
+  if (action === "createRecord") {
+    const type = form.get("type");
+    if (
+      type !== "START_WORK" &&
+      type !== "END_WORK" &&
+      type !== "START_BREAK" &&
+      type !== "END_BREAK"
+    ) {
+      return new Response("Invalid type", { status: 400 });
+    }
+
+    await prisma.record.create({
+      data: {
+        userId,
+        type: type as string,
+      },
+    });
+
+    // Return the type in the response data for the fetcher
+    return json({ type });
+  }
+
+  return new Response("Invalid action", { status: 400 });
 }

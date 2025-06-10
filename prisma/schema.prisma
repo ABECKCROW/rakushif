@@ -21,6 +21,7 @@ model Record {
   type      RecordType
   timestamp DateTime   @default(now())
   isModified Boolean   @default(false)
+  isDeleted Boolean    @default(false)
 }
 
 enum RecordType {

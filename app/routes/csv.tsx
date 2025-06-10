@@ -21,11 +21,12 @@ export const loader: LoaderFunction = async ({ request }) => {
     to = new Date(to.getFullYear(), to.getMonth() + 1, 0, 23, 59, 59, 999);
   }
 
-  // 2) DB クエリ
+  // 2) DB クエリ (論理削除されていないもののみ)
   const records = await prisma.record.findMany({
     where: {
       userId: 1,
       timestamp: { gte: from, lte: to },
+      isDeleted: false,
     },
     orderBy: { timestamp: "asc" },
     include: { user: true },

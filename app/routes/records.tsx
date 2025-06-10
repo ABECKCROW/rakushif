@@ -43,11 +43,12 @@ export const loader = async ({ request }) => {
     to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   }
 
-  // レコードを取得
+  // レコードを取得 (論理削除されていないもののみ)
   const records = await prisma.record.findMany({
     where: {
       userId,
       timestamp: { gte: from, lte: to },
+      isDeleted: false,
     },
     orderBy: { timestamp: "asc" },
     include: { user: true },
