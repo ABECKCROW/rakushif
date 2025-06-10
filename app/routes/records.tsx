@@ -19,7 +19,7 @@ import { ActionFunctionArgs, json } from "@remix-run/node";
 import { useFetcher, useLoaderData, useSearchParams } from "@remix-run/react";
 import { useEffect } from "react";
 import prisma from '~/.server/db/client';
-import { ActionButton, FormButton, Header, HomeButton } from '~/components';
+import { ActionButton, FormButton, Header, HomeButton, DateSelector } from '~/components';
 import { useDateRange } from "~/hooks/useDateRange";
 import { calculateDailyData, getDateRangeString, groupRecordsByDate } from "~/utils/recordUtils";
 
@@ -87,9 +87,17 @@ export const RecordsPage = () => {
   // 日付範囲の状態管理にカスタムフックを使用
   const {
     startDate,
-    setStartDate,
     endDate,
-    setEndDate,
+    startYear,
+    startMonth,
+    startDay,
+    endYear,
+    setEndYear,
+    endMonth,
+    setEndMonth,
+    endDay,
+    setEndDay,
+    updateStartDate,
     getCsvUrl,
   } = useDateRange(data.from, data.to);
 
@@ -163,32 +171,44 @@ export const RecordsPage = () => {
             >
               <Flex gap={6} alignItems="center" flexWrap="wrap" py={4}>
                 <FormControl w="auto">
-                  <FormLabel htmlFor="from" fontSize="lg">開始日:</FormLabel>
-                  <Input
-                    id="from"
-                    type="date"
-                    name="from"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    whiteSpace="nowrap"
-                    size="lg"
-                    h="50px"
-                    fontSize="lg"
-                  />
+                  <FormLabel fontSize="lg">開始日:</FormLabel>
+                  <Box>
+                    <DateSelector
+                      year={startYear}
+                      month={startMonth}
+                      day={startDay}
+                      onYearChange={(value) => updateStartDate(value, startMonth, startDay)}
+                      onMonthChange={(value) => updateStartDate(startYear, value, startDay)}
+                      onDayChange={(value) => updateStartDate(startYear, startMonth, value)}
+                      size="lg"
+                    />
+                    <Input
+                      type="hidden"
+                      id="from"
+                      name="from"
+                      value={startDate}
+                    />
+                  </Box>
                 </FormControl>
                 <FormControl w="auto">
-                  <FormLabel htmlFor="to" fontSize="lg">終了日:</FormLabel>
-                  <Input
-                    id="to"
-                    type="date"
-                    name="to"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    whiteSpace="nowrap"
-                    size="lg"
-                    h="50px"
-                    fontSize="lg"
-                  />
+                  <FormLabel fontSize="lg">終了日:</FormLabel>
+                  <Box>
+                    <DateSelector
+                      year={endYear}
+                      month={endMonth}
+                      day={endDay}
+                      onYearChange={setEndYear}
+                      onMonthChange={setEndMonth}
+                      onDayChange={setEndDay}
+                      size="lg"
+                    />
+                    <Input
+                      type="hidden"
+                      id="to"
+                      name="to"
+                      value={endDate}
+                    />
+                  </Box>
                 </FormControl>
 
                 <FormButton

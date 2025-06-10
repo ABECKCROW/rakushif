@@ -1,9 +1,9 @@
-import { Box, Container, FormControl, FormLabel, Input, Select, useToast, VStack, HStack, Text } from '@chakra-ui/react';
+import { Box, Container, FormControl, FormLabel, Select, useToast, VStack } from '@chakra-ui/react';
 import { ActionFunctionArgs, json, LoaderFunction } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import prisma from "~/.server/db/client";
-import { FormButton, Header, HomeButton } from '~/components';
+import { FormButton, Header, HomeButton, DateSelector, TimeSelector } from '~/components';
 
 // Define the type for the form data
 type RecordFormData = {
@@ -97,94 +97,33 @@ export default function ModifyRecord() {
             <VStack spacing={4} align="stretch">
               <FormControl isRequired>
                 <FormLabel>日付:</FormLabel>
-                <HStack spacing={2} width="100%" maxW="300px">
-                  <Select
-                    id="year"
-                    name="year"
-                    value={formData.year}
-                    onChange={handleChange}
-                    width="40%"
-                  >
-                    {Array.from({ length: 5 }, (_, i) => {
-                      const year = new Date().getFullYear() - 2 + i;
-                      return (
-                        <option key={year} value={year.toString()}>
-                          {year}年
-                        </option>
-                      );
-                    })}
-                  </Select>
-                  <Select
-                    id="month"
-                    name="month"
-                    value={formData.month}
-                    onChange={handleChange}
-                    width="30%"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const month = (i + 1).toString().padStart(2, '0');
-                      return (
-                        <option key={month} value={month}>
-                          {i + 1}月
-                        </option>
-                      );
-                    })}
-                  </Select>
-                  <Select
-                    id="day"
-                    name="day"
-                    value={formData.day}
-                    onChange={handleChange}
-                    width="30%"
-                  >
-                    {Array.from({ length: 31 }, (_, i) => {
-                      const day = (i + 1).toString().padStart(2, '0');
-                      return (
-                        <option key={day} value={day}>
-                          {i + 1}日
-                        </option>
-                      );
-                    })}
-                  </Select>
-                </HStack>
+                <Box width="100%" maxW="300px">
+                  <DateSelector
+                    year={formData.year}
+                    month={formData.month}
+                    day={formData.day}
+                    onYearChange={(value) => setFormData(prev => ({ ...prev, year: value }))}
+                    onMonthChange={(value) => setFormData(prev => ({ ...prev, month: value }))}
+                    onDayChange={(value) => setFormData(prev => ({ ...prev, day: value }))}
+                  />
+                  <input type="hidden" name="year" value={formData.year} />
+                  <input type="hidden" name="month" value={formData.month} />
+                  <input type="hidden" name="day" value={formData.day} />
+                </Box>
               </FormControl>
 
               <FormControl isRequired>
                 <FormLabel>時刻:</FormLabel>
-                <HStack spacing={2} width="100%" maxW="300px">
-                  <Select
-                    id="hour"
-                    name="hour"
-                    value={formData.hour}
-                    onChange={handleChange}
-                    width="50%"
-                  >
-                    {Array.from({ length: 24 }, (_, i) => {
-                      const hour = i.toString().padStart(2, '0');
-                      return (
-                        <option key={hour} value={hour}>
-                          {hour}時
-                        </option>
-                      );
-                    })}
-                  </Select>
-                  <Select
-                    id="minute"
-                    name="minute"
-                    value={formData.minute}
-                    onChange={handleChange}
-                    width="50%"
-                  >
-                    {Array.from({ length: 60 }, (_, i) => {
-                      const minute = i.toString().padStart(2, '0');
-                      return (
-                        <option key={minute} value={minute}>
-                          {minute}分
-                        </option>
-                      );
-                    })}
-                  </Select>
-                </HStack>
+                <Box width="100%" maxW="300px">
+                  <TimeSelector
+                    hour={formData.hour}
+                    minute={formData.minute}
+                    onHourChange={(value) => setFormData(prev => ({ ...prev, hour: value }))}
+                    onMinuteChange={(value) => setFormData(prev => ({ ...prev, minute: value }))}
+                  />
+                  <input type="hidden" name="hour" value={formData.hour} />
+                  <input type="hidden" name="minute" value={formData.minute} />
+                </Box>
               </FormControl>
 
               <FormControl isRequired>
