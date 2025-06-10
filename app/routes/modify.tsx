@@ -1,4 +1,4 @@
-import { Box, Container, FormControl, FormLabel, Input, Select, useToast, VStack } from '@chakra-ui/react';
+import { Box, Container, FormControl, FormLabel, Input, Select, useToast, VStack, HStack, Text } from '@chakra-ui/react';
 import { ActionFunctionArgs, json, LoaderFunction } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
@@ -7,8 +7,11 @@ import { FormButton, Header, HomeButton } from '~/components';
 
 // Define the type for the form data
 type RecordFormData = {
-  date: string;
-  time: string;
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
   type: string;
 };
 
@@ -21,10 +24,22 @@ export const loader: LoaderFunction = async () => {
 
 export default function ModifyRecord() {
   const { recordTypes } = useLoaderData<typeof loader>();
+
+  // Get current date and time for default values
+  const now = new Date();
+  const currentYear = now.getFullYear().toString();
+  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+  const currentDay = now.getDate().toString().padStart(2, '0');
+  const currentHour = now.getHours().toString().padStart(2, '0');
+  const currentMinute = now.getMinutes().toString().padStart(2, '0');
+
   const [formData, setFormData] = useState<RecordFormData>({
-    date: "", // No default value
-    time: "", // No default value
-    type: "", // No default value
+    year: currentYear,
+    month: currentMonth,
+    day: currentDay,
+    hour: currentHour,
+    minute: currentMinute,
+    type: "",
   });
 
   // Initialize toast and fetcher
@@ -50,9 +65,14 @@ export default function ModifyRecord() {
       });
 
       // Reset form after submission
+      // Get current date and time for default values
+      const now = new Date();
       setFormData({
-        date: "",
-        time: "",
+        year: now.getFullYear().toString(),
+        month: (now.getMonth() + 1).toString().padStart(2, '0'),
+        day: now.getDate().toString().padStart(2, '0'),
+        hour: now.getHours().toString().padStart(2, '0'),
+        minute: now.getMinutes().toString().padStart(2, '0'),
         type: "",
       });
     }
@@ -64,7 +84,8 @@ export default function ModifyRecord() {
   };
 
   // Check if all fields are filled
-  const isFormValid = formData.date !== "" && formData.time !== "" && formData.type !== "";
+  const isFormValid = formData.year !== "" && formData.month !== "" && formData.day !== "" && 
+                     formData.hour !== "" && formData.minute !== "" && formData.type !== "";
 
   return (
     <Container maxW="container.md" py={8}>
@@ -75,29 +96,95 @@ export default function ModifyRecord() {
           <fetcher.Form method="post">
             <VStack spacing={4} align="stretch">
               <FormControl isRequired>
-                <FormLabel htmlFor="date">日付:</FormLabel>
-                <Input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleChange}
-                  width="100%"
-                  maxW="300px"
-                />
+                <FormLabel>日付:</FormLabel>
+                <HStack spacing={2} width="100%" maxW="300px">
+                  <Select
+                    id="year"
+                    name="year"
+                    value={formData.year}
+                    onChange={handleChange}
+                    width="40%"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const year = new Date().getFullYear() - 2 + i;
+                      return (
+                        <option key={year} value={year.toString()}>
+                          {year}年
+                        </option>
+                      );
+                    })}
+                  </Select>
+                  <Select
+                    id="month"
+                    name="month"
+                    value={formData.month}
+                    onChange={handleChange}
+                    width="30%"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const month = (i + 1).toString().padStart(2, '0');
+                      return (
+                        <option key={month} value={month}>
+                          {i + 1}月
+                        </option>
+                      );
+                    })}
+                  </Select>
+                  <Select
+                    id="day"
+                    name="day"
+                    value={formData.day}
+                    onChange={handleChange}
+                    width="30%"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => {
+                      const day = (i + 1).toString().padStart(2, '0');
+                      return (
+                        <option key={day} value={day}>
+                          {i + 1}日
+                        </option>
+                      );
+                    })}
+                  </Select>
+                </HStack>
               </FormControl>
 
               <FormControl isRequired>
-                <FormLabel htmlFor="time">時刻:</FormLabel>
-                <Input
-                  type="time"
-                  id="time"
-                  name="time"
-                  value={formData.time}
-                  onChange={handleChange}
-                  width="100%"
-                  maxW="300px"
-                />
+                <FormLabel>時刻:</FormLabel>
+                <HStack spacing={2} width="100%" maxW="300px">
+                  <Select
+                    id="hour"
+                    name="hour"
+                    value={formData.hour}
+                    onChange={handleChange}
+                    width="50%"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const hour = i.toString().padStart(2, '0');
+                      return (
+                        <option key={hour} value={hour}>
+                          {hour}時
+                        </option>
+                      );
+                    })}
+                  </Select>
+                  <Select
+                    id="minute"
+                    name="minute"
+                    value={formData.minute}
+                    onChange={handleChange}
+                    width="50%"
+                  >
+                    {Array.from({ length: 60 }, (_, i) => {
+                      const minute = i.toString().padStart(2, '0');
+                      return (
+                        <option key={minute} value={minute}>
+                          {minute}分
+                        </option>
+                      );
+                    })}
+                  </Select>
+                </HStack>
               </FormControl>
 
               <FormControl isRequired>
@@ -159,19 +246,32 @@ function translateType(type: string): string {
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
-  const date = formData.get("date") as string;
-  const time = formData.get("time") as string;
+  const year = formData.get("year") as string;
+  const month = formData.get("month") as string;
+  const day = formData.get("day") as string;
+  const hour = formData.get("hour") as string;
+  const minute = formData.get("minute") as string;
   const type = formData.get("type") as string;
 
-  if (!date || !time || !type) {
+  if (!year || !month || !day || !hour || !minute || !type) {
     return json({ error: "All fields are required" }, { status: 400 });
   }
 
+  // Format date string for display (YYYY-MM-DD)
+  const date = `${year}-${month}-${day}`;
+  // Format time string for display (HH:MM)
+  const time = `${hour}:${minute}`;
+
   // Combine date and time to create a timestamp
   // Explicitly create a date in local time (JST)
-  const [year, month, day] = date.split('-').map(Number);
-  const [hours, minutes] = time.split(':').map(Number);
-  const timestamp = new Date(year, month - 1, day, hours, minutes, 0);
+  const timestamp = new Date(
+    parseInt(year),
+    parseInt(month) - 1,
+    parseInt(day),
+    parseInt(hour),
+    parseInt(minute),
+    0
+  );
 
   // Create a new record with the isModified flag set to true
   await prisma.record.create({
