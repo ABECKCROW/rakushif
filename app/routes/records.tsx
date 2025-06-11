@@ -19,12 +19,14 @@ import { ActionFunctionArgs, json } from "@remix-run/node";
 import { useFetcher, useLoaderData, useSearchParams } from "@remix-run/react";
 import { useEffect } from "react";
 import prisma from '~/.server/db/client';
+import { requireUserId } from "~/utils/session.server";
 import { ActionButton, FormButton, Header, HomeButton, DateSelector } from '~/components';
 import { useDateRange } from "~/hooks/useDateRange";
 import { calculateDailyData, getDateRangeString, groupRecordsByDate } from "~/utils/recordUtils";
 
 export const loader = async ({ request }: { request: Request }) => {
-  const userId = 1; // 仮ユーザーID
+  // Get the user ID from the session
+  const userId = await requireUserId(request);
 
   // URLからクエリパラメータを取得
   const url = new URL(request.url);

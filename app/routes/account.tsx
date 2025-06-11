@@ -1,22 +1,25 @@
 import { LoaderFunction } from "@remix-run/node";
-import { useLoaderData } from '@remix-run/react';
+import { useLoaderData, Form } from '@remix-run/react';
 import prisma from '~/.server/db/client';
+import { requireUserId } from "~/utils/session.server";
 import {
   Box,
+  Button,
   Container,
   Text,
   VStack,
   FormControl,
   FormLabel,
   Input,
-  Divider, Heading,
+  Divider, 
+  Heading,
 } from '@chakra-ui/react';
 import { Header } from '~/components/Header';
 import { HomeButton } from '~/components/HomeButton';
 
-export const loader: LoaderFunction = async () => {
-  // ユーザー情報を取得 (現在は固定のユーザーID=1を使用)
-  const userId = 1;
+export const loader: LoaderFunction = async ({ request }) => {
+  // Get the user ID from the session
+  const userId = await requireUserId(request);
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -68,6 +71,14 @@ export default function Account() {
             <Text fontSize="sm" color="gray.500">
               ※ 現在のバージョンでは、アカウント情報の編集機能は実装されていません。
             </Text>
+
+            <Divider my={4} />
+
+            <Form action="/logout" method="post">
+              <Button type="submit" colorScheme="red" width="100%">
+                ログアウト
+              </Button>
+            </Form>
           </VStack>
         </Box>
 

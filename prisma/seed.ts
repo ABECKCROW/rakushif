@@ -4,7 +4,9 @@
  * 多様な打刻パターンの Record を生成する
  */
 import { PrismaClient, RecordType } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
+const { hash } = bcrypt;
 const prisma = new PrismaClient();
 const userId = 1; // 適宜変更
 
@@ -103,6 +105,33 @@ const scenarios: Scenario[] = [
 /* ========== ここまでシナリオ定義 ========== */
 
 async function main() {
+  // Create default user with hashed password
+  const hashedPassword = await hash("Password1!", 10);
+
+  // Delete existing user if it exists (to avoid conflicts)
+  await prisma.user.deleteMany({
+    where: { id: userId }
+  });
+
+  // Create the user
+  await prisma.user.create({
+    data: {
+      id: userId,
+      name: "テストユーザー",
+      email: "test@example.com",
+      passwordHash: hashedPassword,
+      role: "user",
+      emailVerified: true,
+    }
+  });
+
+  console.log("✅ Default user created");
+
+  // Delete existing records if they exist
+  await prisma.record.deleteMany({
+    where: { userId }
+  });
+
   const start = new Date("2025-04-01T00:00:00+09:00");
   const end   = new Date("2025-06-06T00:00:00+09:00");
 

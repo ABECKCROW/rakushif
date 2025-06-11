@@ -3,6 +3,7 @@ import { useLoaderData, useFetcher } from '@remix-run/react';
 import React, { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
 import { RecordType } from "@prisma/client";
+import { requireUserId } from "~/utils/session.server";
 
 // Define the type for the action response
 type ActionResponse = {
@@ -19,7 +20,6 @@ import {
   Badge,
   useToast,
   AlertDialog,
-  AlertDialogBody,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogContent,
@@ -47,9 +47,9 @@ const statusText = {
 // 将来的に変更できるようにするため、定数として定義
 const RECORD_DELETION_TIME_LIMIT_MINUTES = 5;
 
-export const loader: LoaderFunction = async () => {
-  // ユーザー情報を取得 (現在は固定のユーザーID=1を使用)
-  const userId = 1;
+export const loader: LoaderFunction = async ({ request }) => {
+  // Get the user from the session
+  const userId = await requireUserId(request);
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -503,8 +503,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const action = actionValue;
 
-  // 現在は固定のユーザーID=1を使用
-  const userId = 1;
+  // Get the user ID from the session
+  const userId = await requireUserId(request);
 
   // Handle record deletion
   if (action === "deleteRecord") {

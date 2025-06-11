@@ -4,6 +4,7 @@ import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import prisma from "~/.server/db/client";
 import { RecordType } from "@prisma/client";
+import { requireUserId } from "~/utils/session.server";
 import { FormButton, Header, HomeButton, DateSelector, TimeSelector } from '~/components';
 
 // Define the type for the action response
@@ -25,7 +26,10 @@ type RecordFormData = {
   type: string;
 };
 
-export const loader: LoaderFunction = async () => {
+export const loader: LoaderFunction = async ({ request }) => {
+  // Require a user to be logged in
+  await requireUserId(request);
+
   // Define the record types
   const recordTypes: RecordType[] = ["START_WORK", "END_WORK", "START_BREAK", "END_BREAK"];
 
@@ -244,10 +248,13 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "Invalid record type" }, { status: 400 });
   }
 
+  // Get the user ID from the session
+  const userId = await requireUserId(request);
+
   // Create a new record with the isModified flag set to true
   await prisma.record.create({
     data: {
-      userId: 1, // Default user ID
+      userId,
       type, // Now type is guaranteed to be RecordType
       timestamp,
       isModified: true,
