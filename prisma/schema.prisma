@@ -17,6 +17,7 @@ model User {
   passwordHash  String
   role          String   @default("user")
   updatedAt     DateTime @updatedAt
+  avatarUrl     String?
   records       Record[]
 }
 

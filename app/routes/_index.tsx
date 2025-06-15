@@ -25,7 +25,8 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   Button,
-  useDisclosure
+  useDisclosure,
+  Avatar
 } from '@chakra-ui/react';
 import { 
   Header, 
@@ -52,6 +53,12 @@ export const loader: LoaderFunction = async ({ request }) => {
   const userId = await requireUserId(request);
   const user = await prisma.user.findUnique({
     where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+    },
   });
 
   // 最新の記録を取得 (論理削除されていないもののみ)
@@ -327,7 +334,7 @@ function getRandomMessage(messages: string[]): string {
 export default function Index() {
   const { status, user, todayRecords } = useLoaderData<{ 
     status: Status, 
-    user: { id: number, name: string, email: string } | null,
+    user: { id: number, name: string, email: string, avatarUrl?: string } | null,
     todayRecords: any[]
   }>();
 
@@ -374,15 +381,14 @@ export default function Index() {
       <VStack spacing={6} align="stretch">
         <Header title="出退勤打刻">
           {user && (
-            <HStack spacing={2}>
-              <LinkButton 
-                to="/account" 
+            <Box as="a" href="/account">
+              <Avatar 
                 size="sm" 
-                colorScheme="whiteAlpha"
-              >
-                {user.name}
-              </LinkButton>
-            </HStack>
+                name={user.name} 
+                src={user.avatarUrl || undefined}
+                cursor="pointer"
+              />
+            </Box>
           )}
         </Header>
 
