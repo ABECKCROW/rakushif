@@ -14,7 +14,7 @@ import {
   FormErrorMessage,
   useToast,
 } from "@chakra-ui/react";
-import { getUser, hashPassword } from "~/utils/session.server";
+import { getUser, hashPassword, createUserSession } from "~/utils/session.server";
 import { Header } from "~/components";
 import prisma from "~/.server/db/client";
 
@@ -86,7 +86,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Create new user
   const hashedPassword = await hashPassword(password);
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
       name,
       email,
@@ -96,8 +96,12 @@ export async function action({ request }: ActionFunctionArgs) {
     },
   });
 
-  // Redirect to login page
-  return redirect("/login");
+  // Create user session and redirect to home page
+  return createUserSession({
+    userId: newUser.id,
+    role: newUser.role,
+    redirectTo: "/",
+  });
 }
 
 export default function Signup() {
