@@ -17,10 +17,10 @@ import {
 } from '@chakra-ui/react';
 import { ActionFunctionArgs, json } from "@remix-run/node";
 import { useFetcher, useLoaderData, useSearchParams } from "@remix-run/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import prisma from '~/.server/db/client';
 import { requireUserId } from "~/utils/session.server";
-import { ActionButton, FormButton, Header, HomeButton, DateSelector } from '~/components';
+import { ActionButton, FormButton, Header, HomeButton, DateSelector, LoadingOverlay } from '~/components';
 import { useDateRange } from "~/hooks/useDateRange";
 import { calculateDailyData, getDateRangeString, groupRecordsByDate } from "~/utils/recordUtils";
 
@@ -87,6 +87,8 @@ export const loader = async ({ request }: { request: Request }) => {
 export const RecordsPage = () => {
   const data = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
+  const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
+  const [isUpdatingDateRange, setIsUpdatingDateRange] = useState(false);
 
   // 日付範囲の状態管理にカスタムフックを使用
   const {
@@ -163,6 +165,7 @@ export const RecordsPage = () => {
               method="post"
               onSubmit={(e) => {
                 e.preventDefault(); // Prevent default form submission first
+                setIsUpdatingDateRange(true);
 
                 // Get the form values for navigation
                 const formData = new FormData(e.currentTarget);
@@ -172,6 +175,7 @@ export const RecordsPage = () => {
                 // Validate that from and to are strings
                 if (typeof from !== "string" || typeof to !== "string") {
                   console.error("Form values are not valid strings");
+                  setIsUpdatingDateRange(false);
                   return;
                 }
 
@@ -228,29 +232,43 @@ export const RecordsPage = () => {
                   h="50px"
                   px={6}
                   fontSize="lg"
+                  isLoading={isUpdatingDateRange}
+                  loadingText="更新中..."
+                  isDisabled={isUpdatingDateRange || isDownloadingCsv}
                 >
                   更新
                 </FormButton>
-                <ActionButton
-                  size="lg"
-                  h="50px"
-                  px={6}
-                  mt={8}
-                  fontSize="lg"
-                  showToast={true}
-                  toastOptions={{
-                    title: "CSVをダウンロードしました",
-                    status: "success",
-                    duration: 3000,
-                    isClosable: true,
-                    position: "top",
-                  }}
-                  actionFn={() => {
-                    window.location.href = getCsvUrl();
-                  }}
-                >
-                  📥 CSV
-                </ActionButton>
+                  <ActionButton
+                    size="lg"
+                    h="50px"
+                    px={6}
+                    mt={8}
+                    fontSize="lg"
+                    showToast={true}
+                    isLoading={isDownloadingCsv}
+                    loadingText="ダウンロード中..."
+                    isDisabled={isDownloadingCsv}
+                    toastOptions={{
+                      title: "CSVをダウンロードしました",
+                      status: "success",
+                      duration: 3000,
+                      isClosable: true,
+                      position: "top",
+                    }}
+                    actionFn={() => {
+                      setIsDownloadingCsv(true);
+                      // Use setTimeout to allow the loading state to be shown before the download starts
+                      setTimeout(() => {
+                        window.location.href = getCsvUrl();
+                        // Reset loading state after a short delay to ensure the loading state is visible
+                        setTimeout(() => {
+                          setIsDownloadingCsv(false);
+                        }, 1000);
+                      }, 500);
+                    }}
+                  >
+                    📥 CSV
+                  </ActionButton>
               </Flex>
             </fetcher.Form>
           </Box>
@@ -296,7 +314,7 @@ export const RecordsPage = () => {
         </Box>
       </VStack>
       <Box width="100%" mt={4}>
-        <HomeButton size="sm" />
+        <HomeButton size="sm" isDisabled={isDownloadingCsv || isUpdatingDateRange} />
       </Box>
 
     </Container>

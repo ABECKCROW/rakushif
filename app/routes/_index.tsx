@@ -32,6 +32,7 @@ import {
   Header, 
   LinkButton,
   AttendanceButton,
+  LoadingOverlay,
 } from '~/components';
 
 // ステータスの種類
@@ -168,11 +169,12 @@ type TimeRecord = {
 }
 
 // 打刻時間を表示するコンポーネント
-function TodayRecords({ records }: { records: TimeRecord[] }) {
+function TodayRecords({ records, isSubmitting }: { records: TimeRecord[], isSubmitting: boolean }) {
   const fetcher = useFetcher();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [recordToDelete, setRecordToDelete] = useState<{id: number, type: RecordType, timestamp: string} | null>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const isDeleting = fetcher.state === "submitting";
 
   if (records.length === 0) {
     return null;
@@ -247,10 +249,10 @@ function TodayRecords({ records }: { records: TimeRecord[] }) {
               <Box width="40px" ml={2}>
                 {!record.isDeleted && canDelete && (
                   <Text 
-                    color="blue.500"
+                    color={isDeleting || isSubmitting ? "gray.400" : "blue.500"}
                     textDecoration="underline"
-                    cursor="pointer"
-                    onClick={() => handleDeleteClick(record)}
+                    cursor={isDeleting || isSubmitting ? "not-allowed" : "pointer"}
+                    onClick={isDeleting || isSubmitting ? undefined : () => handleDeleteClick(record)}
                     fontSize="0.8em"
                   >
                     削除
@@ -275,10 +277,17 @@ function TodayRecords({ records }: { records: TimeRecord[] }) {
             </AlertDialogHeader>
 
             <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
+              <Button ref={cancelRef} onClick={onClose} isDisabled={isDeleting}>
                 キャンセル
               </Button>
-              <Button colorScheme="red" onClick={handleDeleteConfirm} ml={3}>
+              <Button 
+                colorScheme="red" 
+                onClick={handleDeleteConfirm} 
+                ml={3}
+                isLoading={isDeleting}
+                loadingText="削除中..."
+                isDisabled={isDeleting}
+              >
                 削除
               </Button>
             </AlertDialogFooter>
@@ -341,6 +350,15 @@ export default function Index() {
   // Initialize toast and fetcher
   const toast = useToast();
   const fetcher = useFetcher<ActionResponse>();
+  const [customLoading, setCustomLoading] = useState(false);
+  const isSubmitting = fetcher.state === "submitting" || customLoading;
+
+  // Set customLoading when form is submitted
+  useEffect(() => {
+    if (fetcher.state === "submitting") {
+      setCustomLoading(true);
+    }
+  }, [fetcher.state]);
 
   // Show toast when fetcher submission is successful
   useEffect(() => {
@@ -373,6 +391,11 @@ export default function Index() {
           position: "top"
         });
       }
+
+      // Clear customLoading after a short delay to ensure UI has updated
+      setTimeout(() => {
+        setCustomLoading(false);
+      }, 500); // 500ms delay to ensure the UI has updated
     }
   }, [fetcher.state, fetcher.data, toast]);
 
@@ -381,12 +404,18 @@ export default function Index() {
       <VStack spacing={6} align="stretch">
         <Header title="出退勤打刻">
           {user && (
-            <Box as="a" href="/account">
+            <Box 
+              as="a" 
+              href={isSubmitting ? undefined : "/account"}
+              onClick={isSubmitting ? (e) => e.preventDefault() : undefined}
+              pointerEvents={isSubmitting ? "none" : "auto"}
+              opacity={isSubmitting ? 0.4 : 1}
+            >
               <Avatar 
                 size="sm" 
                 name={user.name} 
                 src={user.avatarUrl || undefined}
-                cursor="pointer"
+                cursor={isSubmitting ? "not-allowed" : "pointer"}
               />
             </Box>
           )}
@@ -421,52 +450,64 @@ export default function Index() {
               <RealtimeClock />
             </Box>
 
-            <TodayRecords records={todayRecords} />
+            <TodayRecords records={todayRecords} isSubmitting={isSubmitting} />
 
             <Box width="100%">
-              <fetcher.Form method="post">
-                <input type="hidden" name="action" value="createRecord" />
-                <VStack spacing={4} width="100%">
-                  {status === 'NOT_WORKING' && (
-                    <AttendanceButton 
-                      name="type" 
-                      value="START_WORK"
-                      colorScheme="blue"
-                    >
-                      出勤
-                    </AttendanceButton>
-                  )}
-
-                  {status === 'WORKING' && (
-                    <>
+                <fetcher.Form method="post">
+                  <input type="hidden" name="action" value="createRecord" />
+                  <VStack spacing={4} width="100%">
+                    {status === 'NOT_WORKING' && (
                       <AttendanceButton 
                         name="type" 
-                        value="END_WORK"
-                        colorScheme="red"
+                        value="START_WORK"
+                        colorScheme="blue"
+                        isDisabled={isSubmitting}
+                        isLoading={isSubmitting}
+                        loadingText="記録中..."
                       >
-                        退勤
+                        出勤
                       </AttendanceButton>
+                    )}
+
+                    {status === 'WORKING' && (
+                      <>
+                        <AttendanceButton 
+                          name="type" 
+                          value="END_WORK"
+                          colorScheme="red"
+                          isDisabled={isSubmitting}
+                          isLoading={isSubmitting}
+                          loadingText="記録中..."
+                        >
+                          退勤
+                        </AttendanceButton>
+                        <AttendanceButton 
+                          name="type" 
+                          value="START_BREAK"
+                          colorScheme="orange"
+                          isDisabled={isSubmitting}
+                          isLoading={isSubmitting}
+                          loadingText="記録中..."
+                        >
+                          休憩開始
+                        </AttendanceButton>
+                      </>
+                    )}
+
+                    {status === 'ON_BREAK' && (
                       <AttendanceButton 
                         name="type" 
-                        value="START_BREAK"
-                        colorScheme="orange"
+                        value="END_BREAK"
+                        colorScheme="green"
+                        isDisabled={isSubmitting}
+                        isLoading={isSubmitting}
+                        loadingText="記録中..."
                       >
-                        休憩開始
+                        休憩終了
                       </AttendanceButton>
-                    </>
-                  )}
-
-                  {status === 'ON_BREAK' && (
-                    <AttendanceButton 
-                      name="type" 
-                      value="END_BREAK"
-                      colorScheme="green"
-                    >
-                      休憩終了
-                    </AttendanceButton>
-                  )}
-                </VStack>
-              </fetcher.Form>
+                    )}
+                  </VStack>
+                </fetcher.Form>
             </Box>
 
             <HStack justifyContent="center" spacing={4} mt={4} width="100%">
@@ -477,6 +518,7 @@ export default function Index() {
                 minWidth="150px"
                 fontSize="md"
                 whiteSpace="nowrap"
+                isDisabled={isSubmitting}
               >
                 記録一覧を見る
               </LinkButton>
@@ -487,6 +529,7 @@ export default function Index() {
                 minWidth="150px"
                 fontSize="md"
                 whiteSpace="nowrap"
+                isDisabled={isSubmitting}
               >
                 打刻修正
               </LinkButton>

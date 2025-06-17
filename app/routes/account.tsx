@@ -1,6 +1,6 @@
 import { LoaderFunction, ActionFunction, json, unstable_createMemoryUploadHandler, unstable_parseMultipartFormData } from "@remix-run/node";
-import { useLoaderData, Form, useActionData } from '@remix-run/react';
-import React from 'react';
+import { Form, useLoaderData, useActionData, useNavigation } from "@remix-run/react";
+import { useEffect, useState } from 'react';
 import prisma from '~/.server/db/client';
 import { requireUserId } from "~/utils/session.server";
 import * as fs from 'node:fs/promises';
@@ -21,8 +21,7 @@ import {
   useToast,
   FormErrorMessage,
 } from '@chakra-ui/react';
-import { Header } from '~/components/Header';
-import { HomeButton } from '~/components/HomeButton';
+import { Header, HomeButton, LoadingOverlay } from '~/components';
 
 export const loader: LoaderFunction = async ({ request }) => {
   // Get the user ID from the session
@@ -95,9 +94,12 @@ export default function Account() {
   const { user } = useLoaderData<{ user: { id: number, name: string, email: string, avatarUrl?: string } | null }>();
   const actionData = useActionData<{ error?: string, success?: boolean }>();
   const toast = useToast();
+  const navigation = useNavigation();
+  const isUploading = navigation.state === "submitting";
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Show toast on successful update
-  React.useEffect(() => {
+  useEffect(() => {
     if (actionData?.success) {
       toast({
         title: "プロフィール画像が更新されました",
@@ -113,7 +115,7 @@ export default function Account() {
       <Container maxW="container.md" py={8}>
         <VStack spacing={6} align="stretch">
           <Header title="アカウント情報">
-            <HomeButton size="sm" colorScheme="whiteAlpha" />
+            <HomeButton size="sm" colorScheme="whiteAlpha" isDisabled={isLoggingOut || isUploading} />
           </Header>
           <Text>ユーザー情報が見つかりませんでした。</Text>
         </VStack>
@@ -155,27 +157,39 @@ export default function Account() {
               <Input value={user.email} isReadOnly />
             </FormControl>
 
-            <Form method="post" encType="multipart/form-data">
-              <FormControl isInvalid={!!actionData?.error}>
-                <FormLabel>プロフィール画像をアップロード</FormLabel>
-                <Input 
-                  type="file" 
-                  name="avatarFile" 
-                  accept="image/*"
-                  py={1}
-                />
-                {actionData?.error && (
-                  <FormErrorMessage>{actionData.error}</FormErrorMessage>
-                )}
-                <Text fontSize="xs" color="gray.500" mt={1}>
-                  ※ JPG, PNG, GIF などの画像ファイルをアップロードできます。
-                </Text>
-              </FormControl>
+            <LoadingOverlay 
+              isLoading={isUploading && !isLoggingOut} 
+              text="画像をアップロード中..."
+            >
+              <Form method="post" encType="multipart/form-data">
+                <FormControl isInvalid={!!actionData?.error}>
+                  <FormLabel>プロフィール画像をアップロード</FormLabel>
+                  <Input 
+                    type="file" 
+                    name="avatarFile" 
+                    accept="image/*"
+                    py={1}
+                    disabled={isUploading}
+                  />
+                  {actionData?.error && (
+                    <FormErrorMessage>{actionData.error}</FormErrorMessage>
+                  )}
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    ※ JPG, PNG, GIF などの画像ファイルをアップロードできます。
+                  </Text>
+                </FormControl>
 
-              <Button type="submit" colorScheme="blue" mt={4} width="100%">
-                プロフィール画像を更新
-              </Button>
-            </Form>
+                <Button 
+                  type="submit" 
+                  colorScheme="blue" 
+                  mt={4} 
+                  width="100%"
+                  disabled={isLoggingOut}
+                >
+                  プロフィール画像を更新
+                </Button>
+              </Form>
+            </LoadingOverlay>
 
             <Text fontSize="sm" color="gray.500">
               ※ 現在のバージョンでは、名前とメールアドレスの編集機能は実装されていません。
@@ -183,15 +197,28 @@ export default function Account() {
 
             <Divider my={4} />
 
-            <Form action="/logout" method="post">
-              <Button type="submit" colorScheme="red" width="100%">
+            <Form 
+              action="/logout" 
+              method="post"
+              onSubmit={() => {
+                setIsLoggingOut(true);
+              }}
+            >
+              <Button 
+                type="submit" 
+                colorScheme="red" 
+                width="100%"
+                isLoading={isLoggingOut}
+                loadingText="ログアウト中..."
+                disabled={isLoggingOut || isUploading}
+              >
                 ログアウト
               </Button>
             </Form>
           </VStack>
         </Box>
 
-        <HomeButton />
+        <HomeButton isDisabled={isUploading || isLoggingOut} />
       </VStack>
     </Container>
   );

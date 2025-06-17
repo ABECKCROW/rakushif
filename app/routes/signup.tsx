@@ -1,6 +1,6 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData, useSearchParams } from "@remix-run/react";
-import { useEffect, useRef } from "react";
+import { Form, Link, useActionData, useNavigation } from "@remix-run/react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -15,7 +15,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { getUser, hashPassword, createUserSession } from "~/utils/session.server";
-import { Header } from "~/components";
+import { Header, LoadingOverlay } from "~/components";
 import prisma from "~/.server/db/client";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -109,6 +109,21 @@ export default function Signup() {
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const navigation = useNavigation();
+  const [customLoading, setCustomLoading] = useState(false);
+  const isSubmitting = navigation.state === "submitting" || customLoading;
+
+  // Set customLoading when form is submitted
+  useEffect(() => {
+    if (navigation.state === "submitting") {
+      setCustomLoading(true);
+    } else if (navigation.state === "idle" && customLoading) {
+      // Clear customLoading after a delay to ensure UI has updated
+      setTimeout(() => {
+        setCustomLoading(false);
+      }, 500);
+    }
+  }, [navigation.state, customLoading]);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -135,88 +150,114 @@ export default function Signup() {
               新規登録
             </Heading>
 
-            <Form method="post">
-              <VStack spacing={4} align="stretch">
-                <FormControl isInvalid={!!actionData?.errors?.name}>
-                  <FormLabel htmlFor="name">名前</FormLabel>
-                  <Input
-                    id="name"
-                    ref={nameRef}
-                    name="name"
-                    defaultValue={actionData?.values?.name}
-                    aria-invalid={actionData?.errors?.name ? true : undefined}
-                    aria-describedby="name-error"
-                  />
-                  {actionData?.errors?.name && (
-                    <FormErrorMessage id="name-error">{actionData.errors.name}</FormErrorMessage>
-                  )}
-                </FormControl>
+            <LoadingOverlay
+              isLoading={isSubmitting}
+              text="アカウント登録中..."
+            >
+              <Form method="post">
+                <VStack spacing={4} align="stretch">
+                  <FormControl isInvalid={!!actionData?.errors?.name}>
+                    <FormLabel htmlFor="name">名前</FormLabel>
+                    <Input
+                      id="name"
+                      ref={nameRef}
+                      name="name"
+                      defaultValue={actionData?.values?.name}
+                      aria-invalid={actionData?.errors?.name ? true : undefined}
+                      aria-describedby="name-error"
+                      disabled={isSubmitting}
+                    />
+                    {actionData?.errors?.name && (
+                      <FormErrorMessage id="name-error">{actionData.errors.name}</FormErrorMessage>
+                    )}
+                  </FormControl>
 
-                <FormControl isInvalid={!!actionData?.errors?.email}>
-                  <FormLabel htmlFor="email">メールアドレス</FormLabel>
-                  <Input
-                    id="email"
-                    ref={emailRef}
-                    name="email"
-                    type="email"
-                    defaultValue={actionData?.values?.email}
-                    autoComplete="email"
-                    aria-invalid={actionData?.errors?.email ? true : undefined}
-                    aria-describedby="email-error"
-                  />
-                  {actionData?.errors?.email && (
-                    <FormErrorMessage id="email-error">{actionData.errors.email}</FormErrorMessage>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!actionData?.errors?.email}>
+                    <FormLabel htmlFor="email">メールアドレス</FormLabel>
+                    <Input
+                      id="email"
+                      ref={emailRef}
+                      name="email"
+                      type="email"
+                      defaultValue={actionData?.values?.email}
+                      autoComplete="email"
+                      aria-invalid={actionData?.errors?.email ? true : undefined}
+                      aria-describedby="email-error"
+                      disabled={isSubmitting}
+                    />
+                    {actionData?.errors?.email && (
+                      <FormErrorMessage id="email-error">{actionData.errors.email}</FormErrorMessage>
+                    )}
+                  </FormControl>
 
-                <FormControl isInvalid={!!actionData?.errors?.password}>
-                  <FormLabel htmlFor="password">パスワード</FormLabel>
-                  <Input
-                    id="password"
-                    ref={passwordRef}
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    aria-invalid={actionData?.errors?.password ? true : undefined}
-                    aria-describedby="password-error"
-                  />
-                  {actionData?.errors?.password ? (
-                    <FormErrorMessage id="password-error">{actionData.errors.password}</FormErrorMessage>
-                  ) : (
-                    <Text fontSize="sm" color="gray.500">
-                      パスワードは8文字以上で、大文字と記号を含める必要があります
-                    </Text>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!actionData?.errors?.password}>
+                    <FormLabel htmlFor="password">パスワード</FormLabel>
+                    <Input
+                      id="password"
+                      ref={passwordRef}
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      aria-invalid={actionData?.errors?.password ? true : undefined}
+                      aria-describedby="password-error"
+                      disabled={isSubmitting}
+                    />
+                    {actionData?.errors?.password ? (
+                      <FormErrorMessage id="password-error">{actionData.errors.password}</FormErrorMessage>
+                    ) : (
+                      <Text fontSize="sm" color="gray.500">
+                        パスワードは8文字以上で、大文字と記号を含める必要があります
+                      </Text>
+                    )}
+                  </FormControl>
 
-                <FormControl isInvalid={!!actionData?.errors?.confirmPassword}>
-                  <FormLabel htmlFor="confirmPassword">パスワード（確認）</FormLabel>
-                  <Input
-                    id="confirmPassword"
-                    ref={confirmPasswordRef}
-                    name="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    aria-invalid={actionData?.errors?.confirmPassword ? true : undefined}
-                    aria-describedby="confirm-password-error"
-                  />
-                  {actionData?.errors?.confirmPassword && (
-                    <FormErrorMessage id="confirm-password-error">
-                      {actionData.errors.confirmPassword}
-                    </FormErrorMessage>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!actionData?.errors?.confirmPassword}>
+                    <FormLabel htmlFor="confirmPassword">パスワード（確認）</FormLabel>
+                    <Input
+                      id="confirmPassword"
+                      ref={confirmPasswordRef}
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      aria-invalid={actionData?.errors?.confirmPassword ? true : undefined}
+                      aria-describedby="confirm-password-error"
+                      disabled={isSubmitting}
+                    />
+                    {actionData?.errors?.confirmPassword && (
+                      <FormErrorMessage id="confirm-password-error">
+                        {actionData.errors.confirmPassword}
+                      </FormErrorMessage>
+                    )}
+                  </FormControl>
 
-                <Button type="submit" colorScheme="blue" size="lg" mt={4}>
-                  登録
-                </Button>
-              </VStack>
-            </Form>
+                  <Button 
+                    type="submit" 
+                    colorScheme="blue" 
+                    size="lg" 
+                    mt={4}
+                    isLoading={isSubmitting}
+                    loadingText="登録中..."
+                    disabled={isSubmitting}
+                  >
+                    登録
+                  </Button>
+                </VStack>
+              </Form>
+            </LoadingOverlay>
 
             <Box mt={4}>
               <Text>
                 既にアカウントをお持ちの方は{" "}
-                <Link to="/login" style={{ color: "blue", textDecoration: "underline" }}>
+                <Link 
+                  to={isSubmitting ? undefined : "/login"} 
+                  onClick={isSubmitting ? (e) => e.preventDefault() : undefined}
+                  style={{ 
+                    color: isSubmitting ? "gray.400" : "blue", 
+                    textDecoration: "underline",
+                    pointerEvents: isSubmitting ? "none" : "auto",
+                    opacity: isSubmitting ? 0.4 : 1
+                  }}
+                >
                   ログイン
                 </Link>
                 {" "}してください。

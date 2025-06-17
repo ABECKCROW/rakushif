@@ -1,6 +1,6 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData, useSearchParams } from "@remix-run/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Form, Link, useActionData, useSearchParams, useNavigation } from "@remix-run/react";
 import {
   Box,
   Button,
@@ -15,7 +15,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { createUserSession, getUser, verifyLogin } from "~/utils/session.server";
-import { Header } from "~/components";
+import { Header, LoadingOverlay } from "~/components";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // If the user is already logged in, redirect to the home page
@@ -76,6 +76,21 @@ export default function Login() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+  const navigation = useNavigation();
+  const [customLoading, setCustomLoading] = useState(false);
+  const isSubmitting = navigation.state === "submitting" || customLoading;
+
+  // Set customLoading when form is submitted
+  useEffect(() => {
+    if (navigation.state === "submitting") {
+      setCustomLoading(true);
+    } else if (navigation.state === "idle" && customLoading) {
+      // Clear customLoading after a delay to ensure UI has updated
+      setTimeout(() => {
+        setCustomLoading(false);
+      }, 500);
+    }
+  }, [navigation.state, customLoading]);
 
   useEffect(() => {
     if (actionData?.errors?.email) {
@@ -96,56 +111,80 @@ export default function Login() {
               ログイン
             </Heading>
 
-            <Form method="post">
-              <VStack spacing={4} align="stretch">
-                <input
-                  type="hidden"
-                  name="redirectTo"
-                  value={redirectTo}
-                />
-
-                <FormControl isInvalid={!!actionData?.errors?.email}>
-                  <FormLabel htmlFor="email">メールアドレス</FormLabel>
-                  <Input
-                    id="email"
-                    ref={emailRef}
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    aria-invalid={actionData?.errors?.email ? true : undefined}
-                    aria-describedby="email-error"
+            <LoadingOverlay
+              isLoading={isSubmitting}
+              text="ログイン中..."
+            >
+              <Form method="post">
+                <VStack spacing={4} align="stretch">
+                  <input
+                    type="hidden"
+                    name="redirectTo"
+                    value={redirectTo}
                   />
-                  {actionData?.errors?.email && (
-                    <FormErrorMessage id="email-error">{actionData.errors.email}</FormErrorMessage>
-                  )}
-                </FormControl>
 
-                <FormControl isInvalid={!!actionData?.errors?.password}>
-                  <FormLabel htmlFor="password">パスワード</FormLabel>
-                  <Input
-                    id="password"
-                    ref={passwordRef}
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    aria-invalid={actionData?.errors?.password ? true : undefined}
-                    aria-describedby="password-error"
-                  />
-                  {actionData?.errors?.password && (
-                    <FormErrorMessage id="password-error">{actionData.errors.password}</FormErrorMessage>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!actionData?.errors?.email}>
+                    <FormLabel htmlFor="email">メールアドレス</FormLabel>
+                    <Input
+                      id="email"
+                      ref={emailRef}
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      aria-invalid={actionData?.errors?.email ? true : undefined}
+                      aria-describedby="email-error"
+                      disabled={isSubmitting}
+                    />
+                    {actionData?.errors?.email && (
+                      <FormErrorMessage id="email-error">{actionData.errors.email}</FormErrorMessage>
+                    )}
+                  </FormControl>
 
-                <Button type="submit" colorScheme="blue" size="lg" mt={4}>
-                  ログイン
-                </Button>
-              </VStack>
-            </Form>
+                  <FormControl isInvalid={!!actionData?.errors?.password}>
+                    <FormLabel htmlFor="password">パスワード</FormLabel>
+                    <Input
+                      id="password"
+                      ref={passwordRef}
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      aria-invalid={actionData?.errors?.password ? true : undefined}
+                      aria-describedby="password-error"
+                      disabled={isSubmitting}
+                    />
+                    {actionData?.errors?.password && (
+                      <FormErrorMessage id="password-error">{actionData.errors.password}</FormErrorMessage>
+                    )}
+                  </FormControl>
+
+                  <Button 
+                    type="submit" 
+                    colorScheme="blue" 
+                    size="lg" 
+                    mt={4}
+                    isLoading={isSubmitting}
+                    loadingText="ログイン中..."
+                    disabled={isSubmitting}
+                  >
+                    ログイン
+                  </Button>
+                </VStack>
+              </Form>
+            </LoadingOverlay>
 
             <Box mt={4}>
               <Text>
                 アカウントをお持ちでない方は{" "}
-                <Link to="/signup" style={{ color: "blue", textDecoration: "underline" }}>
+                <Link 
+                  to={isSubmitting ? undefined : "/signup"} 
+                  onClick={isSubmitting ? (e) => e.preventDefault() : undefined}
+                  style={{ 
+                    color: isSubmitting ? "gray.400" : "blue", 
+                    textDecoration: "underline",
+                    pointerEvents: isSubmitting ? "none" : "auto",
+                    opacity: isSubmitting ? 0.4 : 1
+                  }}
+                >
                   新規登録
                 </Link>
                 {" "}してください。

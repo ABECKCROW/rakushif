@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import prisma from "~/.server/db/client";
 import { RecordType } from "@prisma/client";
 import { requireUserId } from "~/utils/session.server";
-import { FormButton, Header, HomeButton, DateSelector, TimeSelector } from '~/components';
+import { FormButton, Header, HomeButton, DateSelector, TimeSelector, LoadingOverlay } from '~/components';
 
 // Define the type for the action response
 type ActionResponse = {
@@ -59,6 +59,7 @@ export default function ModifyRecord() {
   // Initialize toast and fetcher
   const toast = useToast();
   const fetcher = useFetcher<ActionResponse>();
+  const isSubmitting = fetcher.state === "submitting";
 
   // Show toast when fetcher submission is successful
   useEffect(() => {
@@ -107,75 +108,84 @@ export default function ModifyRecord() {
         <Header title="打刻修正" />
 
         <Box p={6} borderRadius="lg">
-          <fetcher.Form method="post">
-            <VStack spacing={4} align="stretch">
-              <FormControl isRequired>
-                <FormLabel>日付:</FormLabel>
-                <Box width="100%" maxW="300px">
-                  <DateSelector
-                    year={formData.year}
-                    month={formData.month}
-                    day={formData.day}
-                    onYearChange={(value) => setFormData(prev => ({ ...prev, year: value }))}
-                    onMonthChange={(value) => setFormData(prev => ({ ...prev, month: value }))}
-                    onDayChange={(value) => setFormData(prev => ({ ...prev, day: value }))}
-                  />
-                  <input type="hidden" name="year" value={formData.year} />
-                  <input type="hidden" name="month" value={formData.month} />
-                  <input type="hidden" name="day" value={formData.day} />
-                </Box>
-              </FormControl>
+          <LoadingOverlay 
+            isLoading={isSubmitting} 
+            text="打刻修正を記録中..."
+          >
+            <fetcher.Form method="post">
+              <VStack spacing={4} align="stretch">
+                <FormControl isRequired>
+                  <FormLabel>日付:</FormLabel>
+                  <Box width="100%" maxW="300px">
+                    <DateSelector
+                      year={formData.year}
+                      month={formData.month}
+                      day={formData.day}
+                      onYearChange={(value) => setFormData(prev => ({ ...prev, year: value }))}
+                      onMonthChange={(value) => setFormData(prev => ({ ...prev, month: value }))}
+                      onDayChange={(value) => setFormData(prev => ({ ...prev, day: value }))}
+                      isDisabled={isSubmitting}
+                    />
+                    <input type="hidden" name="year" value={formData.year} />
+                    <input type="hidden" name="month" value={formData.month} />
+                    <input type="hidden" name="day" value={formData.day} />
+                  </Box>
+                </FormControl>
 
-              <FormControl isRequired>
-                <FormLabel>時刻:</FormLabel>
-                <Box width="100%" maxW="300px">
-                  <TimeSelector
-                    hour={formData.hour}
-                    minute={formData.minute}
-                    onHourChange={(value) => setFormData(prev => ({ ...prev, hour: value }))}
-                    onMinuteChange={(value) => setFormData(prev => ({ ...prev, minute: value }))}
-                  />
-                  <input type="hidden" name="hour" value={formData.hour} />
-                  <input type="hidden" name="minute" value={formData.minute} />
-                </Box>
-              </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>時刻:</FormLabel>
+                  <Box width="100%" maxW="300px">
+                    <TimeSelector
+                      hour={formData.hour}
+                      minute={formData.minute}
+                      onHourChange={(value) => setFormData(prev => ({ ...prev, hour: value }))}
+                      onMinuteChange={(value) => setFormData(prev => ({ ...prev, minute: value }))}
+                      isDisabled={isSubmitting}
+                    />
+                    <input type="hidden" name="hour" value={formData.hour} />
+                    <input type="hidden" name="minute" value={formData.minute} />
+                  </Box>
+                </FormControl>
 
-              <FormControl isRequired>
-                <FormLabel htmlFor="type">記録種別:</FormLabel>
-                <Select
-                  id="type"
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
+                <FormControl isRequired>
+                  <FormLabel htmlFor="type">記録種別:</FormLabel>
+                  <Select
+                    id="type"
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                    width="100%"
+                    maxW="300px"
+                    placeholder="選択してください"
+                    isDisabled={isSubmitting}
+                  >
+                    {recordTypes.map((type: RecordType) => (
+                      <option key={type} value={type}>
+                        {translateType(type)}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormButton
+                  colorScheme="blue"
+                  mt={4}
                   width="100%"
                   maxW="300px"
-                  placeholder="選択してください"
+                  isDisabled={!isFormValid || isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="記録中..."
                 >
-                  {recordTypes.map((type: RecordType) => (
-                    <option key={type} value={type}>
-                      {translateType(type)}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormButton
-                colorScheme="blue"
-                mt={4}
-                width="100%"
-                maxW="300px"
-                isDisabled={!isFormValid}
-              >
-                打刻修正
-              </FormButton>
-            </VStack>
-          </fetcher.Form>
-
+                  打刻修正
+                </FormButton>
+              </VStack>
+            </fetcher.Form>
+          </LoadingOverlay>
         </Box>
 
       </VStack>
       <Box justify-content="center" width="100%" mt={4}>
-        <HomeButton size="sm" />
+        <HomeButton size="sm" isDisabled={isSubmitting} />
       </Box>
     </Container>
   );
